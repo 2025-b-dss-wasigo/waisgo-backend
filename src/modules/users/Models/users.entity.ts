@@ -48,7 +48,7 @@ export class User {
   @Column({ type: 'timestamp', nullable: true })
   bloqueadoHasta: Date | null;
 
-  @OneToOne(() => Credential, (c) => c.user, { cascade: true })
+  @OneToOne(() => Credential, (c) => c.user, { cascade: true, eager: true })
   credential: Credential;
 
   @CreateDateColumn()
