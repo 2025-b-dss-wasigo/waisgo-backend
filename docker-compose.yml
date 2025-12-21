@@ -1,0 +1,7 @@
+version: "3.8"
+
+services:
+  WasiGo:
+    build: .
+    ports:
+      - "8000:3000"
