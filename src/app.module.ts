@@ -20,7 +20,7 @@ import { TypeOrmModule } from '@nestjs/typeorm';
       password: String(process.env.DB_PASSWORD),
       database: process.env.DB_NAME,
       autoLoadEntities: true,
-      synchronize: false,
+      synchronize: true,
     }),
     AuthModule,
     UsersModule,
@@ -28,7 +28,5 @@ import { TypeOrmModule } from '@nestjs/typeorm';
     AuditModule,
     CommonModule,
   ],
-  controllers: [],
-  providers: [],
 })
 export class AppModule {}
