@@ -1,3 +1,4 @@
+import { AuditService } from './../audit/audit.service';
 import {
   Injectable,
   UnauthorizedException,
@@ -12,6 +13,9 @@ import { randomUUID } from 'crypto';
 import { ConfigService } from '@nestjs/config';
 import { User } from '../users/Models/users.entity';
 import { LoginDto } from './Dto/login.dto';
+import { AuthContext } from '../common/types/auth-context.type';
+import { AuditAction } from '../audit/Enums/audit-actions.enum';
+import { AuditResult } from '../audit/Enums/audit-result.enum';
 
 @Injectable()
 export class AuthService {
@@ -25,6 +29,7 @@ export class AuthService {
     @InjectRepository(User)
     private readonly usersRepo: Repository<User>,
     private readonly configService: ConfigService,
+    private readonly AuditService: AuditService,
   ) {
     const jwtSecret = this.configService.get<string>('JWT_SECRET');
     this.JWT_EXPIRES_IN =
@@ -32,7 +37,7 @@ export class AuthService {
     this.secretKey = new TextEncoder().encode(jwtSecret);
   }
 
-  async login(dto: LoginDto) {
+  async login(dto: LoginDto, context?: AuthContext) {
     try {
       const email = dto.email.trim().toLowerCase();
 
@@ -57,6 +62,13 @@ export class AuthService {
       );
 
       if (!passwordValid) {
+        await this.AuditService.logEvent({
+          action: AuditAction.LOGIN_FAILED,
+          userId: user.id,
+          ipAddress: context?.ip,
+          userAgent: context?.userAgent,
+          result: AuditResult.FAILED,
+        });
         await this.handleFailedAttempt(user);
         throw new UnauthorizedException('Credenciales inválidas');
       }
@@ -77,6 +89,14 @@ export class AuthService {
         .setExpirationTime(this.JWT_EXPIRES_IN)
         .encrypt(this.secretKey);
 
+      await this.AuditService.logEvent({
+        action: AuditAction.LOGIN_SUCCESS,
+        userId: user.id,
+        ipAddress: context?.ip,
+        userAgent: context?.userAgent,
+        result: AuditResult.SUCCESS,
+      });
+
       return {
         token,
         expiresIn: 28800, // 8 horas en segundos
@@ -85,6 +105,7 @@ export class AuthService {
       if (error instanceof UnauthorizedException) {
         throw error;
       }
+
       this.logger.error(`${error.name}: ${error.message}`);
       throw new InternalServerErrorException(
         'Unexpected error, check server logs',
@@ -98,7 +119,6 @@ export class AuthService {
     credential.failedAttempts += 1;
     credential.lastFailedAttempt = new Date();
 
-    // 🔒 ¿Excedió el máximo?
     if (credential.failedAttempts >= this.MAX_FAILED_ATTEMPTS) {
       const bloqueadoHasta = new Date();
       bloqueadoHasta.setMinutes(
