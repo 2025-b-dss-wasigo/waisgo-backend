@@ -29,17 +29,15 @@ export class JweAuthGuard implements CanActivate {
   }
 
   async canActivate(context: ExecutionContext): Promise<boolean> {
-    // 🔓 1️⃣ VERIFICAR SI EL ENDPOINT ES PÚBLICO
     const isPublic = this.reflector.getAllAndOverride<boolean>(IS_PUBLIC_KEY, [
-      context.getHandler(), // método (login, register)
-      context.getClass(), // controlador completo
+      context.getHandler(),
+      context.getClass(),
     ]);
 
     if (isPublic) {
-      return true; // ⬅️ NO pide token
+      return true;
     }
 
-    // 🔐 2️⃣ ENDPOINT PROTEGIDO → exigir token
     const request = context.switchToHttp().getRequest();
     const authHeader: string | undefined = request.headers['authorization'];
 
@@ -55,7 +53,6 @@ export class JweAuthGuard implements CanActivate {
         audience: 'wasigo-app',
       });
 
-      // Adjuntamos identidad mínima al request
       request.user = {
         id: payload.sub,
         role: payload.role,

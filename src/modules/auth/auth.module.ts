@@ -6,6 +6,7 @@ import { User } from '../users/Models/users.entity';
 import { APP_GUARD } from '@nestjs/core';
 import { JweAuthGuard } from './Guards/jwe-auth.guard';
 import { RolesGuard } from './Guards/roles.guard';
+import { AuditModule } from '../audit/audit.module';
 
 @Module({
   providers: [
@@ -20,6 +21,6 @@ import { RolesGuard } from './Guards/roles.guard';
     },
   ],
   controllers: [AuthController],
-  imports: [TypeOrmModule.forFeature([User])],
+  imports: [TypeOrmModule.forFeature([User]), AuditModule],
 })
 export class AuthModule {}
