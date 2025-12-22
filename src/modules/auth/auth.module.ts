@@ -5,6 +5,7 @@ import { TypeOrmModule } from '@nestjs/typeorm';
 import { User } from '../users/Models/users.entity';
 import { APP_GUARD } from '@nestjs/core';
 import { JweAuthGuard } from './Guards/jwe-auth.guard';
+import { RolesGuard } from './Guards/roles.guard';
 
 @Module({
   providers: [
@@ -12,6 +13,10 @@ import { JweAuthGuard } from './Guards/jwe-auth.guard';
     {
       provide: APP_GUARD,
       useClass: JweAuthGuard,
+    },
+    {
+      provide: APP_GUARD,
+      useClass: RolesGuard,
     },
   ],
   controllers: [AuthController],
