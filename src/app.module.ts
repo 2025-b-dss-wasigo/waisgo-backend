@@ -13,6 +13,7 @@ import { OtpModule } from './modules/otp/otp.module';
 import { PaymentsModule } from './modules/payments/payments.module';
 import { AdminModule } from './modules/admin/admin.module';
 import { MailModule } from './modules/mail/mail.module';
+import { RedisModule } from './redis/redis.module';
 
 @Module({
   imports: [
@@ -41,6 +42,7 @@ import { MailModule } from './modules/mail/mail.module';
     PaymentsModule,
     AdminModule,
     MailModule,
+    RedisModule,
   ],
 })
 export class AppModule {}
