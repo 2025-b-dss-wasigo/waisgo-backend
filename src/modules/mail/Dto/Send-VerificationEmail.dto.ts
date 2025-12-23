@@ -1,4 +1,4 @@
-export interface sendVerificationEmail {
+export interface SendVerificationEmailOptions {
   to: string;
   alias: string;
   code: string;

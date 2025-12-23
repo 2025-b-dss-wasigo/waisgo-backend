@@ -9,6 +9,8 @@ import { Repository } from 'typeorm';
 import * as bcrypt from 'bcrypt';
 import { User } from './Models/users.entity';
 import { RegisterUserDto } from './Dto/register-user.dto';
+import { RolUsuarioEnum } from './Enums/users-roles.enum';
+import { EstadoVerificacionEnum } from './Enums/estado-ver.enum';
 
 @Injectable()
 export class UsersService {
@@ -24,8 +26,8 @@ export class UsersService {
       const user = this.usersRepo.create({
         ...userDetails,
         alias,
-        rol: 'USER',
-        estadoVerificacion: 'NO_VERIFICADO',
+        rol: RolUsuarioEnum.USER,
+        estadoVerificacion: EstadoVerificacionEnum.NO_VERIFICADO,
         credential: {
           passwordHash: await bcrypt.hash(password, 12),
         },
@@ -39,6 +41,34 @@ export class UsersService {
       };
     } catch (error) {
       this.handleDBExeptions(error);
+    }
+  }
+
+  async findById(id: string): Promise<User> {
+    const user = await this.usersRepo.findOne({ where: { id } });
+    if (!user) {
+      throw new BadRequestException('Usuario no encontrado');
+    }
+    return user;
+  }
+
+  async findByIdForVerification(
+    id: string,
+  ): Promise<Pick<User, 'id' | 'email' | 'alias' | 'estadoVerificacion'>> {
+    const user = await this.usersRepo.findOne({
+      where: { id },
+      select: ['id', 'email', 'alias', 'estadoVerificacion'],
+    });
+    if (!user) {
+      throw new BadRequestException('Usuario no encontrado');
+    }
+    return user;
+  }
+
+  async update(id: string, data: Partial<User>): Promise<void> {
+    const result = await this.usersRepo.update(id, data);
+    if (result.affected === 0) {
+      throw new BadRequestException('Usuario no encontrado');
     }
   }
 

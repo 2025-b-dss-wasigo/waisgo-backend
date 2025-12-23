@@ -7,9 +7,8 @@ import {
   OneToOne,
 } from 'typeorm';
 import { Credential } from './credentials.entity';
-
-export type RolUsuario = 'USER' | 'PASAJERO' | 'CONDUCTOR' | 'ADMIN';
-export type EstadoVerificacion = 'NO_VERIFICADO' | 'VERIFICADO';
+import { RolUsuarioEnum } from '../Enums/users-roles.enum';
+import { EstadoVerificacionEnum } from '../Enums/estado-ver.enum';
 
 @Entity('users')
 export class User {
@@ -33,17 +32,17 @@ export class User {
 
   @Column({
     type: 'enum',
-    enum: ['USER', 'PASAJERO', 'CONDUCTOR', 'ADMIN'],
-    default: 'USER',
+    enum: RolUsuarioEnum,
+    default: RolUsuarioEnum.USER,
   })
-  rol: RolUsuario;
+  rol: RolUsuarioEnum;
 
   @Column({
     type: 'enum',
-    enum: ['NO_VERIFICADO', 'VERIFICADO'],
-    default: 'NO_VERIFICADO',
+    enum: EstadoVerificacionEnum,
+    default: EstadoVerificacionEnum.NO_VERIFICADO,
   })
-  estadoVerificacion: EstadoVerificacion;
+  estadoVerificacion: EstadoVerificacionEnum;
 
   @Column({ type: 'timestamp', nullable: true })
   bloqueadoHasta: Date | null;

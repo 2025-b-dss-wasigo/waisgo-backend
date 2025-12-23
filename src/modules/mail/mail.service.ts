@@ -1,20 +1,24 @@
-import { sendVerificationEmail } from './Dto/Send-VerificationEmail.dto';
+import { SendVerificationEmailOptions } from './Dto/Send-VerificationEmail.dto';
 import { SendGenericEmailDto } from './Dto/Send-GenericEmail.dto';
-import { Injectable, Logger } from '@nestjs/common';
+import {
+  Injectable,
+  Logger,
+  InternalServerErrorException,
+} from '@nestjs/common';
 import * as nodemailer from 'nodemailer';
-import { readFileSync } from 'fs';
-import { join } from 'path';
+import { readFileSync } from 'node:fs';
+import { join } from 'node:path';
 import { ConfigService } from '@nestjs/config';
 import { AuditService } from '../audit/audit.service';
 
 @Injectable()
 export class MailService {
   private readonly logger = new Logger(MailService.name);
-  private transporter: nodemailer.Transporter;
+  private readonly transporter: nodemailer.Transporter;
 
   constructor(
     private readonly configService: ConfigService,
-    private readonly auditService: AuditService, // Implementar Auditoria, logs y manejo de errores
+    private readonly auditService: AuditService,
   ) {
     this.transporter = nodemailer.createTransport({
       host: this.configService.get<string>('MAIL_HOST'),
@@ -28,62 +32,55 @@ export class MailService {
   }
 
   private loadTemplate(templateName: string): string {
-    const path = join(
-      process.cwd(),
-      'src',
-      'modules',
-      'mail',
-      'templates',
-      templateName,
-    );
-
-    return readFileSync(path, 'utf8');
+    const templatePath = join(__dirname, 'Templates', templateName);
+    return readFileSync(templatePath, 'utf8');
   }
 
   async sendVerificationEmail(
-    sendVerificationEmail: sendVerificationEmail,
+    options: SendVerificationEmailOptions,
   ): Promise<void> {
     const html = this.loadTemplate('verification.html')
-      .replace('{{alias}}', sendVerificationEmail.alias)
-      .replace('{{code}}', sendVerificationEmail.code)
-      .replace(
-        '{{expires}}',
-        sendVerificationEmail.expiresInMinutes.toString(),
-      );
+      .replace('{{alias}}', options.alias)
+      .replace('{{code}}', options.code)
+      .replace('{{expires}}', options.expiresInMinutes.toString());
 
     try {
       await this.transporter.sendMail({
-        from: process.env.MAIL_FROM,
-        to: sendVerificationEmail.to,
+        from: this.configService.get<string>('MAIL_FROM'),
+        to: options.to,
         subject: 'Verificación de cuenta – WasiGo',
         html,
       });
     } catch (error) {
       this.logger.error(
-        `Error enviando correo de verificación a ${sendVerificationEmail.to}`,
+        `Error enviando correo de verificación a ${options.to}`,
         error.stack,
+      );
+      throw new InternalServerErrorException(
+        'Error al enviar el correo de verificación',
       );
     }
   }
 
-  async sendGenericEmail(genericEmail: SendGenericEmailDto): Promise<void> {
+  async sendGenericEmail(options: SendGenericEmailDto): Promise<void> {
     const html = this.loadTemplate('generic.html').replace(
       '{{message}}',
-      genericEmail.message,
+      options.message,
     );
 
     try {
       await this.transporter.sendMail({
-        from: process.env.MAIL_FROM,
-        to: genericEmail.to,
-        subject: genericEmail.subject,
+        from: this.configService.get<string>('MAIL_FROM'),
+        to: options.to,
+        subject: options.subject,
         html,
       });
     } catch (error) {
       this.logger.error(
-        `Error enviando correo genérico a ${genericEmail.to}`,
+        `Error enviando correo genérico a ${options.to}`,
         error.stack,
       );
+      throw new InternalServerErrorException('Error al enviar el correo');
     }
   }
 }

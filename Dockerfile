@@ -18,8 +18,8 @@ FROM node:20-bullseye-slim
 
 WORKDIR /app
 
-# Crear usuario no-root (SEGURIDAD)
-RUN addgroup -S appgroup && adduser -S appuser -G appgroup
+# Crear usuario no-root (SEGURIDAD) - Sintaxis correcta para Debian
+RUN groupadd --system appgroup && useradd --system --gid appgroup appuser
 
 # Copiar solo lo necesario
 COPY --from=builder /app/dist ./dist

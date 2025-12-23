@@ -6,9 +6,8 @@ import {
   Logger,
 } from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
-import { RolUsuario } from '../../users/Models/users.entity';
+import { RolUsuarioEnum } from '../../users/Enums/users-roles.enum';
 import { ROLES_KEY } from 'src/modules/common/Decorators/roles.decorator';
-import { AuditService } from 'src/modules/audit/audit.service';
 
 @Injectable()
 export class RolesGuard implements CanActivate {
@@ -17,7 +16,7 @@ export class RolesGuard implements CanActivate {
   constructor(private readonly reflector: Reflector) {}
 
   canActivate(context: ExecutionContext): boolean {
-    const requiredRoles = this.reflector.getAllAndOverride<RolUsuario[]>(
+    const requiredRoles = this.reflector.getAllAndOverride<RolUsuarioEnum[]>(
       ROLES_KEY,
       [context.getHandler(), context.getClass()],
     );
@@ -27,7 +26,7 @@ export class RolesGuard implements CanActivate {
     }
 
     const request = context.switchToHttp().getRequest();
-    const user = request.user as { role?: RolUsuario };
+    const user = request.user as { role?: RolUsuarioEnum };
 
     if (!user?.role) {
       this.logger.warn(
