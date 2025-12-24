@@ -48,11 +48,23 @@ export class JweAuthGuard implements CanActivate {
 
     const token = authHeader.slice(7);
 
+    if (token.length > 2000) {
+      throw new UnauthorizedException('Token inválido');
+    }
+
     try {
       const { payload } = await jwtDecrypt(token, this.secretKey, {
         issuer: 'wasigo-api',
         audience: 'wasigo-app',
       });
+
+      if (!payload.sub || !payload.jti || !payload.role) {
+        throw new UnauthorizedException('Token malformado');
+      }
+
+      if (payload.exp && payload.exp < Math.floor(Date.now() / 1000)) {
+        throw new UnauthorizedException('Token expirado');
+      }
 
       if (payload.jti) {
         const isRevoked = await this.redisService.isTokenRevoked(payload.jti);

@@ -5,6 +5,7 @@ import {
   Length,
   Matches,
 } from 'class-validator';
+import { Transform } from 'class-transformer';
 import { ApiProperty } from '@nestjs/swagger';
 
 export class RegisterUserDto {
@@ -14,6 +15,7 @@ export class RegisterUserDto {
   })
   @IsNotEmpty()
   @IsEmail()
+  @Transform(({ value }) => value?.toLowerCase().trim())
   @Matches(/^[\w.+-]+@epn\.edu\.ec$/)
   email: string;
 
@@ -24,6 +26,7 @@ export class RegisterUserDto {
     maxLength: 15,
   })
   @IsNotEmpty()
+  @Transform(({ value }) => value?.trim())
   @Matches(/^[A-Za-záéíóúÁÉÍÓÚñÑ ]+$/)
   @Length(3, 15)
   nombre: string;
@@ -35,6 +38,7 @@ export class RegisterUserDto {
     maxLength: 15,
   })
   @IsNotEmpty()
+  @Transform(({ value }) => value?.trim())
   @Matches(/^[A-Za-záéíóúÁÉÍÓÚñÑ ]+$/)
   @Length(3, 15)
   apellido: string;
@@ -44,6 +48,7 @@ export class RegisterUserDto {
     example: '0987654321',
   })
   @IsNotEmpty()
+  @Transform(({ value }) => value?.trim())
   @Matches(/^09\d{8}$/)
   celular: string;
 
@@ -57,6 +62,7 @@ export class RegisterUserDto {
   @IsNotEmpty()
   @IsString()
   @Length(7, 20)
+  @Transform(({ value }) => value?.trim())
   @Matches(/^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[^A-Za-z\d]).+$/, {
     message:
       'La contraseña debe contener al menos una letra mayúscula, una minúscula, un número y un carácter especial.',

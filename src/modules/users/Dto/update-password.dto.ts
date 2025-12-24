@@ -1,4 +1,5 @@
 import { IsString, Length, Matches } from 'class-validator';
+import { Transform } from 'class-transformer';
 import { ApiProperty } from '@nestjs/swagger';
 
 export class UpdatePasswordDto {
@@ -7,6 +8,7 @@ export class UpdatePasswordDto {
     example: 'MiContraseña.123',
   })
   @IsString()
+  @Transform(({ value }) => value?.trim())
   currentPassword: string;
 
   @ApiProperty({
@@ -18,6 +20,7 @@ export class UpdatePasswordDto {
   })
   @IsString()
   @Length(7, 20)
+  @Transform(({ value }) => value?.trim())
   @Matches(/^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[/*.@-_#]).+$/, {
     message:
       'La contraseña debe tener mayúsculas, minúsculas, números y caracteres especiales',

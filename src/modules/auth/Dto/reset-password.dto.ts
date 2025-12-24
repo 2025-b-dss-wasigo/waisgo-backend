@@ -1,5 +1,6 @@
 import { ApiProperty } from '@nestjs/swagger';
 import { IsString, Length, Matches } from 'class-validator';
+import { Transform } from 'class-transformer';
 
 export class ResetPasswordDto {
   @ApiProperty({
@@ -7,6 +8,7 @@ export class ResetPasswordDto {
     example: '550e8400-e29b-41d4-a716-446655440000',
   })
   @IsString()
+  @Transform(({ value }) => value?.trim())
   token: string;
 
   @ApiProperty({
@@ -18,6 +20,7 @@ export class ResetPasswordDto {
   })
   @IsString()
   @Length(7, 20)
+  @Transform(({ value }) => value?.trim())
   @Matches(/^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[/*.@-_#]).+$/, {
     message:
       'La contraseña debe tener mayúsculas, minúsculas, números y caracteres especiales',

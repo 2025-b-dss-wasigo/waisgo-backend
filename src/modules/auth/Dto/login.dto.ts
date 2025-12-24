@@ -6,6 +6,7 @@ import {
   Length,
   Matches,
 } from 'class-validator';
+import { Transform } from 'class-transformer';
 
 export class LoginDto {
   @ApiProperty({
@@ -14,6 +15,7 @@ export class LoginDto {
   })
   @IsNotEmpty()
   @IsEmail()
+  @Transform(({ value }) => value?.toLowerCase().trim())
   @Matches(/^[\w.+-]+@epn\.edu\.ec$/)
   email: string;
 
@@ -26,5 +28,6 @@ export class LoginDto {
   @IsNotEmpty()
   @IsString()
   @Length(7, 20)
+  @Transform(({ value }) => value?.trim())
   password: string;
 }

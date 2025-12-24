@@ -1,4 +1,5 @@
 import { IsOptional, IsString, Length, Matches } from 'class-validator';
+import { Transform } from 'class-transformer';
 import { ApiPropertyOptional } from '@nestjs/swagger';
 
 export class UpdateProfileDto {
@@ -11,6 +12,7 @@ export class UpdateProfileDto {
   @IsOptional()
   @IsString()
   @Length(3, 15)
+  @Transform(({ value }) => value?.trim())
   @Matches(/^[A-Za-zÁÉÍÓÚáéíóúÑñ\s]+$/, {
     message: 'El nombre solo puede contener letras',
   })
@@ -25,6 +27,7 @@ export class UpdateProfileDto {
   @IsOptional()
   @IsString()
   @Length(3, 15)
+  @Transform(({ value }) => value?.trim())
   @Matches(/^[A-Za-zÁÉÍÓÚáéíóúÑñ\s]+$/, {
     message: 'El apellido solo puede contener letras',
   })
@@ -36,6 +39,7 @@ export class UpdateProfileDto {
   })
   @IsOptional()
   @IsString()
+  @Transform(({ value }) => value?.trim())
   @Matches(/^09\d{8}$/, {
     message: 'Celular inválido',
   })
