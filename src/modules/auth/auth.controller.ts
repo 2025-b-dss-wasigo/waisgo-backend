@@ -57,6 +57,11 @@ export class AuthController {
     status: 200,
     description: 'Se envía correo si el usuario existe.',
   })
+  @ApiResponse({
+    status: 429,
+    description: 'Demasiadas solicitudes. Intente más tarde.',
+  })
+  @Throttle({ default: { limit: 3, ttl: 300000 } }) // 3 intentos en 5 minutos
   forgot(@Body() dto: ForgotPasswordDto) {
     return this.authService.forgotPassword(dto.email);
   }

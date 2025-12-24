@@ -4,16 +4,29 @@ import { Logger, ValidationPipe } from '@nestjs/common';
 import { GlobalExceptionFilter } from './modules/common/filters/global-exception.filter';
 import { AuditService } from './modules/audit/audit.service';
 import { SwaggerModule, DocumentBuilder } from '@nestjs/swagger';
+import helmet from 'helmet';
+import { ConfigService } from '@nestjs/config';
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
   const logger = new Logger('Bootstrap');
+  const auditService = app.get(AuditService);
+  const configService = app.get(ConfigService);
 
   app.setGlobalPrefix('api');
-  app.enableCors(); // TODO: Configure CORS properly for production
 
-  const auditService = app.get(AuditService);
-  app.useGlobalFilters(new GlobalExceptionFilter(auditService));
+  app.use(helmet());
+
+  console.log(process.env.FRONTEND_URL);
+
+  app.enableCors({
+    origin: process.env.FRONTEND_URL || 'http://localhost:4200',
+    credentials: true,
+    methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
+    allowedHeaders: ['Content-Type', 'Authorization'],
+  });
+
+  app.useGlobalFilters(new GlobalExceptionFilter(auditService, configService));
 
   app.useGlobalPipes(
     new ValidationPipe({
@@ -44,11 +57,13 @@ async function bootstrap() {
     useGlobalPrefix: true,
   });
 
-  await app.listen(process.env.PORT ?? 3000);
+  await app.listen(configService.get<number>('PORT') ?? 3000);
 
-  logger.log(`App running on port ${process.env.PORT ?? 3000}`);
   logger.log(
-    `Swagger Docs available at http://localhost:${process.env.PORT ?? 3000}/api/docs`,
+    `App running on port ${configService.get<number>('PORT') ?? 3000}`,
+  );
+  logger.log(
+    `Swagger Docs available at http://localhost:${configService.get<number>('PORT') ?? 3000}/api/docs`,
   );
 }
 bootstrap();

@@ -1,3 +1,4 @@
+import { ConfigService } from '@nestjs/config';
 import {
   ExceptionFilter,
   Catch,
@@ -15,7 +16,10 @@ import { AuditResult } from 'src/modules/audit/Enums/audit-result.enum';
 export class GlobalExceptionFilter implements ExceptionFilter {
   private readonly logger = new Logger(GlobalExceptionFilter.name);
 
-  constructor(private readonly auditService: AuditService) {}
+  constructor(
+    private readonly auditService: AuditService,
+    private readonly configService: ConfigService,
+  ) {}
 
   async catch(exception: unknown, host: ArgumentsHost) {
     const ctx = host.switchToHttp();
@@ -49,9 +53,15 @@ export class GlobalExceptionFilter implements ExceptionFilter {
       });
     }
 
+    const safeMessage =
+      this.configService.get('NODE_ENV') === 'production' &&
+      status === HttpStatus.INTERNAL_SERVER_ERROR
+        ? 'Internal server error'
+        : message;
+
     response.status(status).json({
       statusCode: status,
-      message,
+      message: safeMessage,
       timestamp: new Date().toISOString(),
       path: request.url,
     });

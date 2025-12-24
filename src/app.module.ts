@@ -18,11 +18,17 @@ import { RoutesModule } from './modules/routes/routes.module';
 import { UsersModule } from './modules/users/users.module';
 import { VerificationModule } from './modules/verification/verification.module';
 import { RedisModule } from './redis/redis.module';
+import { envSchema } from './config/env.schema';
 
 @Module({
   imports: [
     ConfigModule.forRoot({
       isGlobal: true,
+      validationSchema: envSchema,
+      validationOptions: {
+        allowUnknown: true,
+        abortEarly: true,
+      },
     }),
     ScheduleModule.forRoot(),
     ThrottlerModule.forRoot([
