@@ -4,6 +4,7 @@ import {
   InternalServerErrorException,
   Logger,
   BadRequestException,
+  ForbiddenException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
@@ -39,6 +40,12 @@ export class AuthService {
   private readonly RESET_PREFIX = 'reset:token:';
   private readonly REVOKE_PREFIX = 'revoke:jti:';
   private readonly REVOKE_USER_PREFIX = 'revoke:user:';
+
+  // NUEVAS CONSTANTES PARA LIMITE Y LINK ÚNICO
+  private readonly RESET_LIMIT_PREFIX = 'reset:limit:';
+  private readonly RESET_ACTIVE_PREFIX = 'reset:active:';
+  private readonly MAX_RESET_ATTEMPTS = 3;
+  private readonly RESET_LIMIT_TTL = 60 * 60;
 
   constructor(
     @InjectRepository(User)
@@ -144,10 +151,29 @@ export class AuthService {
       return genericResponse;
     }
 
+    const limitKey = `${this.RESET_LIMIT_PREFIX}${user.id}`;
+    const attempts = await this.redisService.get(limitKey);
+
+    if (attempts && Number(attempts) >= this.MAX_RESET_ATTEMPTS) {
+      throw new ForbiddenException(
+        'Has excedido el límite de solicitudes. Intenta en 1 hora.',
+      );
+    }
+
+    const activeTokenKey = `${this.RESET_ACTIVE_PREFIX}${user.id}`;
+    const oldTokenUUID = await this.redisService.get(activeTokenKey);
+
+    if (oldTokenUUID) {
+      await this.redisService.del(`${this.RESET_PREFIX}${oldTokenUUID}`);
+    }
+
     const token = randomUUID();
     const redisKey = `${this.RESET_PREFIX}${token}`;
 
     await this.redisService.set(redisKey, user.id, this.RESET_TTL_SECONDS);
+    await this.redisService.set(activeTokenKey, token, this.RESET_TTL_SECONDS);
+
+    await this.incrementResetAttempts(limitKey);
 
     const frontendUrl = this.configService.get<string>('FRONTEND_URL');
     const resetUrl = `${frontendUrl}/reset-password?token=${token}`;
@@ -186,6 +212,7 @@ export class AuthService {
     await this.usersRepo.save(user);
 
     await this.redisService.del(redisKey);
+    await this.redisService.del(`${this.RESET_ACTIVE_PREFIX}${user.id}`);
 
     const nowInSeconds = Math.floor(Date.now() / 1000);
 
@@ -233,5 +260,13 @@ export class AuthService {
     user.bloqueadoHasta = null;
 
     await this.usersRepo.save(user);
+  }
+
+  private async incrementResetAttempts(key: string) {
+    const current = await this.redisService.get(key);
+    let count = current ? Number(current) : 0;
+    count++;
+
+    await this.redisService.set(key, count, this.RESET_LIMIT_TTL);
   }
 }

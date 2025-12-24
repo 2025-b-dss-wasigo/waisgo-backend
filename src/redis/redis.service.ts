@@ -78,7 +78,7 @@ export class RedisService implements OnModuleInit, OnModuleDestroy {
 
     pipeline.set(attemptsKey, 0, 'EX', otpTtl);
 
-    pipeline.set(resendKey, resendCount + 1, 'EX', 24 * 60 * 60);
+    pipeline.set(resendKey, resendCount + 1, 'EX', 60 * 60);
 
     await pipeline.exec();
   }
