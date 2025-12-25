@@ -135,11 +135,6 @@ export class AuthService {
   }
 
   async forgotPassword(email: string): Promise<{ message: string }> {
-    const genericResponse = {
-      message:
-        'Si el correo existe, se enviará un enlace para restablecer la contraseña',
-    };
-
     const user = await this.usersRepo.findOne({
       where: { email: email.toLowerCase().trim() },
     });
@@ -148,7 +143,7 @@ export class AuthService {
       !user ||
       user.estadoVerificacion !== EstadoVerificacionEnum.VERIFICADO
     ) {
-      return genericResponse;
+      return { message: 'Usuario no encontrado o no verificado' };
     }
 
     const limitKey = `${this.RESET_LIMIT_PREFIX}${user.id}`;
@@ -184,7 +179,7 @@ export class AuthService {
       resetUrl: resetUrl,
     });
 
-    return genericResponse;
+    return { message: 'Instrucciones de restablecimiento enviadas al correo' };
   }
 
   async resetPassword(

@@ -12,6 +12,10 @@ export const envSchema = Joi.object({
   DB_USERNAME: Joi.string().min(3).required(),
   DB_PASSWORD: Joi.string().min(3).required(),
   DB_NAME: Joi.string().min(3).required(),
+  DB_SSL: Joi.boolean().default(false),
+
+  DB_MIGRATION_USERNAME: Joi.string().required(),
+  DB_MIGRATION_PASSWORD: Joi.string().required(),
 
   JWT_SECRET: Joi.string().length(32).required(),
   JWT_EXPIRES_IN: Joi.string().default('8h'),
@@ -23,6 +27,7 @@ export const envSchema = Joi.object({
 
   REDIS_HOST: Joi.string().hostname().required(),
   REDIS_PORT: Joi.number().port().default(6379),
+  REDIS_PASSWORD: Joi.string().required(),
 
   MAIL_HOST: Joi.string().hostname().required(),
   MAIL_PORT: Joi.number().port().default(587),

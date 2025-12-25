@@ -10,7 +10,7 @@ import { Credential } from './credentials.entity';
 import { RolUsuarioEnum } from '../Enums/users-roles.enum';
 import { EstadoVerificacionEnum } from '../Enums/estado-ver.enum';
 
-@Entity('users')
+@Entity({ name: 'legacy_users', schema: 'auth' })
 export class User {
   @PrimaryGeneratedColumn('uuid')
   id: string;

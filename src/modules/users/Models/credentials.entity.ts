@@ -8,7 +8,7 @@ import {
 } from 'typeorm';
 import { User } from './users.entity';
 
-@Entity('credentials')
+@Entity({ name: 'legacy_credentials', schema: 'auth' })
 export class Credential {
   @PrimaryGeneratedColumn('uuid')
   id: string;

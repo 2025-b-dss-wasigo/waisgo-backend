@@ -8,6 +8,7 @@ import {
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, FindOneOptions } from 'typeorm';
 import * as bcrypt from 'bcrypt';
+import { randomBytes } from 'crypto';
 import { User } from './Models/users.entity';
 import { RegisterUserDto } from './Dto/register-user.dto';
 import { RolUsuarioEnum } from './Enums/users-roles.enum';
@@ -27,7 +28,7 @@ export class UsersService {
 
       const user = this.usersRepo.create({
         ...userDetails,
-        alias: `Pasajero${Math.floor(1000 + Math.random() * 9000)}`,
+        alias: `Pasajero${randomBytes(4).toString('hex').toUpperCase()}`,
         rol: RolUsuarioEnum.USER,
         estadoVerificacion: EstadoVerificacionEnum.NO_VERIFICADO,
         credential: {

@@ -18,6 +18,7 @@ export class RedisService implements OnModuleInit, OnModuleDestroy {
     this.client = new Redis({
       host: this.configService.get<string>('REDIS_HOST'),
       port: Number(this.configService.get<string>('REDIS_PORT')),
+      password: this.configService.get<string>('REDIS_PASSWORD'),
       connectTimeout: 10000,
       maxRetriesPerRequest: 3,
     });
@@ -40,8 +41,14 @@ export class RedisService implements OnModuleInit, OnModuleDestroy {
   }
 
   private validateKey(key: string): void {
-    if (!key || key.includes(' ') || key.includes('\n') || key.includes('\r')) {
-      throw new Error('Invalid Redis key format');
+    if (!key || typeof key !== 'string') {
+      throw new Error('Redis key must be a non-empty string');
+    }
+    if (/[\s\n\r\0]/.test(key)) {
+      throw new Error('Redis key contains invalid characters');
+    }
+    if (key.length > 512) {
+      throw new Error('Redis key exceeds maximum length');
     }
   }
 
