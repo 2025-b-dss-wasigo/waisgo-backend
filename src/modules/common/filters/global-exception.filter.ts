@@ -46,15 +46,19 @@ export class GlobalExceptionFilter implements ExceptionFilter {
     );
 
     if (status === HttpStatus.UNAUTHORIZED || status === HttpStatus.FORBIDDEN) {
-      await this.auditService.logEvent({
-        action:
-          status === HttpStatus.UNAUTHORIZED
-            ? AuditAction.UNAUTHORIZED_ACCESS
-            : AuditAction.ACCESS_DENIED_ROLE,
-        ipAddress: request.ip,
-        userAgent: request.headers['user-agent'],
-        result: AuditResult.FAILED,
-      });
+      try {
+        await this.auditService.logEvent({
+          action:
+            status === HttpStatus.UNAUTHORIZED
+              ? AuditAction.UNAUTHORIZED_ACCESS
+              : AuditAction.ACCESS_DENIED_ROLE,
+          ipAddress: request.ip,
+          userAgent: request.headers['user-agent'],
+          result: AuditResult.FAILED,
+        });
+      } catch (auditError) {
+        this.logger.error('Failed to log audit event', auditError);
+      }
     }
 
     const safeMessage =

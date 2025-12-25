@@ -20,6 +20,7 @@ import { MetodoPagoEnum } from '../../payments/Enums/metodo-pago.enum';
 @Index('IDX_bookings_passenger_id', ['passengerId'])
 @Index('IDX_bookings_estado', ['estado'])
 @Index('IDX_bookings_created_at', ['createdAt'])
+@Index('IDX_bookings_passenger_estado', ['passengerId', 'estado'])
 export class Booking {
   @PrimaryGeneratedColumn('uuid')
   id: string;
