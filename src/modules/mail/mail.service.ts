@@ -8,6 +8,8 @@ import {
 } from '@nestjs/common';
 import { MailerService } from '@nestjs-modules/mailer';
 import { AuditService } from '../audit/audit.service';
+import { AuditAction } from '../audit/Enums/audit-actions.enum';
+import { AuditResult } from '../audit/Enums/audit-result.enum';
 
 @Injectable()
 export class MailService {
@@ -18,6 +20,31 @@ export class MailService {
     private readonly auditService: AuditService,
   ) {}
 
+  private sanitizeForTemplate(value: string): string {
+    if (!value) return '';
+    // Escapar caracteres HTML para prevenir XSS en templates
+    return value
+      .replaceAll('&', '&amp;')
+      .replaceAll('<', '&lt;')
+      .replaceAll('>', '&gt;')
+      .replaceAll('"', '&quot;')
+      .replaceAll("'", '&#x27;');
+  }
+
+  private sanitizeContext(
+    context: Record<string, unknown>,
+  ): Record<string, unknown> {
+    const sanitized: Record<string, unknown> = {};
+    for (const [key, value] of Object.entries(context)) {
+      if (typeof value === 'string') {
+        sanitized[key] = this.sanitizeForTemplate(value);
+      } else {
+        sanitized[key] = value;
+      }
+    }
+    return sanitized;
+  }
+
   async sendVerificationEmail(
     options: SendVerificationEmailOptions,
   ): Promise<void> {
@@ -26,7 +53,7 @@ export class MailService {
       subject: 'Verificación de cuenta – WasiGo',
       template: 'verification',
       context: {
-        alias: options.alias,
+        alias: this.sanitizeForTemplate(options.alias),
         code: options.code,
         expires: options.expiresInMinutes,
       },
@@ -41,7 +68,7 @@ export class MailService {
       subject: 'Restablecer contraseña – WasiGo',
       template: 'reset-password',
       context: {
-        name: options.name || 'Usuario',
+        name: this.sanitizeForTemplate(options.name || 'Usuario'),
         resetUrl: options.resetUrl,
       },
     });
@@ -52,9 +79,9 @@ export class MailService {
       to: options.to,
       subject: options.subject,
       template: 'generic',
-      context: {
+      context: this.sanitizeContext({
         message: options.message,
-      },
+      }),
     });
   }
 
@@ -62,7 +89,7 @@ export class MailService {
     to: string;
     subject: string;
     template: string;
-    context: Record<string, any>;
+    context: Record<string, unknown>;
   }): Promise<void> {
     try {
       await this.mailerService.sendMail({
@@ -73,11 +100,34 @@ export class MailService {
       });
 
       this.logger.log(`Correo '${params.template}' enviado a ${params.to}`);
+
+      await this.auditService.logEvent({
+        action: AuditAction.EMAIL_SENT,
+        result: AuditResult.SUCCESS,
+        metadata: {
+          template: params.template,
+          recipient: params.to,
+        },
+      });
     } catch (error) {
+      const errorMessage =
+        error instanceof Error ? error.message : 'Error desconocido';
+
       this.logger.error(
-        `Error enviando correo '${params.template}' a ${params.to}: ${error instanceof Error ? error.message : 'Error desconocido'}`,
+        `Error enviando correo '${params.template}' a ${params.to}: ${errorMessage}`,
         error instanceof Error ? error.stack : undefined,
       );
+
+      await this.auditService.logEvent({
+        action: AuditAction.EMAIL_FAILED,
+        result: AuditResult.FAILED,
+        metadata: {
+          template: params.template,
+          recipient: params.to,
+          error: errorMessage,
+        },
+      });
+
       throw new InternalServerErrorException(
         'Error al enviar el correo electrónico. Por favor intente más tarde.',
       );

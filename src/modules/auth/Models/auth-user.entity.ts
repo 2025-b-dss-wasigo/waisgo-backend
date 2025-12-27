@@ -8,8 +8,8 @@ import {
   Index,
 } from 'typeorm';
 import { Credential } from './credential.entity';
-import { RolUsuarioEnum } from '../../users/Enums/users-roles.enum';
-import { EstadoVerificacionEnum } from '../../users/Enums/estado-ver.enum';
+import { RolUsuarioEnum } from '../Enum/users-roles.enum';
+import { EstadoVerificacionEnum } from '../Enum/estado-ver.enum';
 
 @Entity({ schema: 'auth', name: 'auth_users' })
 @Index('IDX_auth_users_rol', ['rol'])

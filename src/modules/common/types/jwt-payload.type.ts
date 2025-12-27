@@ -1,4 +1,4 @@
-import { RolUsuarioEnum } from 'src/modules/users/Enums/users-roles.enum';
+import { RolUsuarioEnum } from 'src/modules/auth/Enum/users-roles.enum';
 
 export type JwtPayload = {
   id: string;
