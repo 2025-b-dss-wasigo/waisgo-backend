@@ -2,8 +2,9 @@ import { Injectable, NotFoundException, Logger } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { BusinessUser } from './Models/business-user.entity';
 import { UserProfile } from './Models/user-profile.entity';
-import { Repository } from 'typeorm';
+import { Repository, EntityManager } from 'typeorm';
 import { UpdateProfileDto } from './Dto/update-profile.dto';
+import { ErrorMessages } from '../common/constants/error-messages.constant';
 
 @Injectable()
 export class BusinessService {
@@ -50,6 +51,39 @@ export class BusinessService {
     this.logger.log(`Business user created: ${userId}`);
   }
 
+  /**
+   * Crea un usuario de negocio usando un EntityManager (para transacciones)
+   */
+  async createFromAuthWithManager(
+    manager: EntityManager,
+    userId: string,
+    data: {
+      email: string;
+      nombre: string;
+      apellido: string;
+      celular: string;
+    },
+  ): Promise<void> {
+    const businessUser = manager.create(BusinessUser, {
+      id: userId,
+      email: data.email,
+      alias: this.generateAlias(),
+    });
+
+    const profile = manager.create(UserProfile, {
+      userId,
+      nombre: data.nombre,
+      apellido: data.apellido,
+      celular: data.celular,
+    });
+
+    businessUser.profile = profile;
+
+    await manager.save(businessUser);
+
+    this.logger.log(`Business user created with transaction: ${userId}`);
+  }
+
   async updateProfile(
     userId: string,
     dto: UpdateProfileDto,
@@ -59,7 +93,7 @@ export class BusinessService {
     });
 
     if (!profile) {
-      throw new NotFoundException('Perfil no encontrado');
+      throw new NotFoundException(ErrorMessages.USER.PROFILE_NOT_FOUND);
     }
 
     // Solo actualizar campos que están presentes en el DTO
@@ -77,7 +111,7 @@ export class BusinessService {
 
     this.logger.log(`Profile updated for user: ${userId}`);
 
-    return { message: 'Perfil actualizado correctamente' };
+    return { message: ErrorMessages.USER.PROFILE_UPDATED };
   }
 
   async softDeleteUser(userId: string): Promise<void> {

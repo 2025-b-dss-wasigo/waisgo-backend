@@ -2,6 +2,7 @@ import { NestFactory } from '@nestjs/core';
 import { AppModule } from './app.module';
 import { Logger, ValidationPipe } from '@nestjs/common';
 import { GlobalExceptionFilter } from './modules/common/filters/global-exception.filter';
+import { ResponseInterceptor } from './modules/common/interceptors/response.interceptor';
 import { AuditService } from './modules/audit/audit.service';
 import { SwaggerModule, DocumentBuilder } from '@nestjs/swagger';
 import helmet from 'helmet';
@@ -24,6 +25,10 @@ async function bootstrap() {
     allowedHeaders: ['Content-Type', 'Authorization'],
   });
 
+  // Interceptor para estandarizar respuestas exitosas
+  app.useGlobalInterceptors(new ResponseInterceptor());
+
+  // Filtro global para manejar excepciones
   app.useGlobalFilters(new GlobalExceptionFilter(auditService, configService));
 
   app.useGlobalPipes(

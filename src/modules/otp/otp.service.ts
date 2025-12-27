@@ -4,17 +4,27 @@ import {
   ForbiddenException,
   Logger,
 } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
 import { randomInt } from 'node:crypto';
 import { RedisService } from 'src/redis/redis.service';
+import { ErrorMessages } from '../common/constants/error-messages.constant';
 
 @Injectable()
 export class OtpService {
   private readonly logger = new Logger(OtpService.name);
-  private readonly OTP_TTL = 15 * 60; // 15 minutos
-  private readonly MAX_ATTEMPTS = 3;
-  private readonly MAX_RESENDS = 3;
+  private readonly OTP_TTL: number;
+  private readonly MAX_ATTEMPTS: number;
+  private readonly MAX_RESENDS: number;
 
-  constructor(private readonly redisService: RedisService) {}
+  constructor(
+    private readonly redisService: RedisService,
+    private readonly configService: ConfigService,
+  ) {
+    this.OTP_TTL =
+      this.configService.get<number>('OTP_EXPIRATION_MINUTES', 15) * 60;
+    this.MAX_ATTEMPTS = this.configService.get<number>('MAX_OTP_ATTEMPTS', 3);
+    this.MAX_RESENDS = this.configService.get<number>('MAX_OTP_RESENDS', 3);
+  }
 
   generateOtp(): string {
     return randomInt(100000, 999999).toString();
@@ -38,7 +48,7 @@ export class OtpService {
 
     if (resendCount >= this.MAX_RESENDS) {
       this.logger.warn(`Max resends reached for user: ${userId}`);
-      throw new ForbiddenException('Límite de reenvíos alcanzado');
+      throw new ForbiddenException(ErrorMessages.VERIFICATION.RESEND_LIMIT);
     }
 
     const otp = this.generateOtp();
@@ -63,7 +73,9 @@ export class OtpService {
   async validateOtp(userId: string, code: string): Promise<void> {
     // Validar formato del código
     if (!/^\d{6}$/.test(code)) {
-      throw new BadRequestException('Formato de código inválido');
+      throw new BadRequestException(
+        ErrorMessages.VERIFICATION.CODE_FORMAT_INVALID,
+      );
     }
 
     const { otpKey, attemptsKey } = this.getOtpKeys(userId);
@@ -72,7 +84,7 @@ export class OtpService {
 
     if (!storedOtp) {
       this.logger.warn(`OTP not found or expired for user: ${userId}`);
-      throw new BadRequestException('OTP expirado o inválido');
+      throw new BadRequestException(ErrorMessages.VERIFICATION.CODE_EXPIRED);
     }
 
     // Comparación de tiempo constante para prevenir timing attacks
@@ -84,11 +96,15 @@ export class OtpService {
       if (attempts >= this.MAX_ATTEMPTS) {
         await this.redisService.del(otpKey, attemptsKey);
         this.logger.warn(`Max OTP attempts reached for user: ${userId}`);
-        throw new ForbiddenException('Demasiados intentos fallidos');
+        throw new ForbiddenException(
+          ErrorMessages.VERIFICATION.MAX_ATTEMPTS_REACHED,
+        );
       }
 
       throw new BadRequestException(
-        `OTP incorrecto. Intentos restantes: ${this.MAX_ATTEMPTS - attempts}`,
+        ErrorMessages.VERIFICATION.CODE_ATTEMPTS_LEFT(
+          this.MAX_ATTEMPTS - attempts,
+        ),
       );
     }
 

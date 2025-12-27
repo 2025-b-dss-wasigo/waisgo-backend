@@ -5,13 +5,15 @@ import {
   Logger,
   BadRequestException,
   ForbiddenException,
+  NotFoundException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { Repository, DataSource } from 'typeorm';
 import * as bcrypt from 'bcrypt';
 import { EncryptJWT } from 'jose';
 import { randomUUID } from 'crypto';
 import { ConfigService } from '@nestjs/config';
+import { ErrorMessages } from '../common/constants/error-messages.constant';
 
 import { EstadoVerificacionEnum } from './Enum/estado-ver.enum';
 import { AuditAction } from '../audit/Enums/audit-actions.enum';
@@ -34,12 +36,12 @@ export class AuthService {
   private readonly secretKey: Uint8Array;
   private readonly JWT_EXPIRES_IN: string;
 
-  // Constantes de Seguridad
-  private readonly MAX_FAILED_ATTEMPTS = 5;
-  private readonly BLOCK_TIME_MINUTES = 15;
+  // Constantes de Seguridad (cargadas desde ConfigService)
+  private readonly MAX_FAILED_ATTEMPTS: number;
+  private readonly BLOCK_TIME_MINUTES: number;
 
   // Constantes para Redis
-  private readonly RESET_TTL_SECONDS = 30 * 60; // 30 minutos
+  private readonly RESET_TTL_SECONDS: number;
   private readonly RESET_PREFIX = 'reset:token:';
   private readonly REVOKE_PREFIX = 'revoke:jti:';
   private readonly REVOKE_USER_PREFIX = 'revoke:user:';
@@ -47,12 +49,13 @@ export class AuthService {
   // NUEVAS CONSTANTES PARA LIMITE Y LINK ÚNICO
   private readonly RESET_LIMIT_PREFIX = 'reset:limit:';
   private readonly RESET_ACTIVE_PREFIX = 'reset:active:';
-  private readonly MAX_RESET_ATTEMPTS = 3;
+  private readonly MAX_RESET_ATTEMPTS: number;
   private readonly RESET_LIMIT_TTL = 60 * 60;
 
   constructor(
     @InjectRepository(AuthUser)
     private readonly authUserRepo: Repository<AuthUser>,
+    private readonly dataSource: DataSource,
     private readonly businessService: BusinessService,
     private readonly configService: ConfigService,
     private readonly auditService: AuditService,
@@ -63,9 +66,25 @@ export class AuthService {
     this.JWT_EXPIRES_IN =
       this.configService.get<string>('JWT_EXPIRES_IN') || '8h';
     this.secretKey = new TextEncoder().encode(jwtSecret);
+
+    // Cargar constantes de seguridad desde variables de entorno
+    this.MAX_FAILED_ATTEMPTS = this.configService.get<number>(
+      'MAX_FAILED_ATTEMPTS',
+      5,
+    );
+    this.BLOCK_TIME_MINUTES = this.configService.get<number>(
+      'BLOCK_TIME_MINUTES',
+      15,
+    );
+    this.RESET_TTL_SECONDS =
+      this.configService.get<number>('RESET_TOKEN_EXPIRY_MINUTES', 30) * 60;
+    this.MAX_RESET_ATTEMPTS = this.configService.get<number>(
+      'MAX_RESET_ATTEMPTS',
+      3,
+    );
   }
 
-  async register(dto: RegisterUserDto) {
+  async register(dto: RegisterUserDto, context?: AuthContext) {
     const { password, nombre, apellido, celular, email } = dto;
     const normalizedEmail = email.toLowerCase().trim();
 
@@ -74,34 +93,64 @@ export class AuthService {
     });
 
     if (existingUser) {
-      throw new BadRequestException('El correo ya está registrado');
+      throw new BadRequestException(ErrorMessages.AUTH.EMAIL_ALREADY_EXISTS);
     }
 
-    const userId = randomUUID();
+    const queryRunner = this.dataSource.createQueryRunner();
+    await queryRunner.connect();
+    await queryRunner.startTransaction();
 
-    const authUser = this.authUserRepo.create({
-      id: userId,
-      email: normalizedEmail,
-      rol: RolUsuarioEnum.USER,
-      estadoVerificacion: EstadoVerificacionEnum.NO_VERIFICADO,
-      credential: {
-        passwordHash: await bcrypt.hash(password, 12),
-      },
-    });
+    try {
+      const userId = randomUUID();
 
-    await this.authUserRepo.save(authUser);
+      const authUser = this.authUserRepo.create({
+        id: userId,
+        email: normalizedEmail,
+        rol: RolUsuarioEnum.USER,
+        estadoVerificacion: EstadoVerificacionEnum.NO_VERIFICADO,
+        credential: {
+          passwordHash: await bcrypt.hash(password, 12),
+        },
+      });
 
-    await this.businessService.createFromAuth(userId, {
-      email,
-      nombre,
-      apellido,
-      celular,
-    });
+      await queryRunner.manager.save(authUser);
 
-    return {
-      success: true,
-      userId,
-    };
+      await this.businessService.createFromAuthWithManager(
+        queryRunner.manager,
+        userId,
+        {
+          email,
+          nombre,
+          apellido,
+          celular,
+        },
+      );
+
+      await queryRunner.commitTransaction();
+
+      // Auditar registro exitoso
+      await this.auditService.logEvent({
+        action: AuditAction.REGISTER,
+        userId,
+        ipAddress: context?.ip,
+        userAgent: context?.userAgent,
+        result: AuditResult.SUCCESS,
+        metadata: { email: normalizedEmail },
+      });
+
+      this.logger.log(`User registered: ${userId}`);
+
+      return {
+        success: true,
+        userId,
+      };
+    } catch (error) {
+      await queryRunner.rollbackTransaction();
+      this.logger.error('Registration failed', error);
+      throw error;
+    } finally {
+      await queryRunner.release();
+    }
   }
 
   async login(dto: LoginDto, context?: AuthContext) {
@@ -115,7 +164,7 @@ export class AuthService {
 
       if (!user || !user.credential) {
         this.logger.warn(`Intento de login fallido para email: ${email}`);
-        throw new UnauthorizedException('Credenciales inválidas');
+        throw new UnauthorizedException(ErrorMessages.AUTH.INVALID_CREDENTIALS);
       }
 
       if (user.bloqueadoHasta && user.bloqueadoHasta > new Date()) {
@@ -123,7 +172,7 @@ export class AuthService {
           (user.bloqueadoHasta.getTime() - Date.now()) / 60000,
         );
         throw new UnauthorizedException(
-          `Cuenta bloqueada. Intente en ${remainingMinutes} minutos.`,
+          ErrorMessages.AUTH.ACCOUNT_BLOCKED(remainingMinutes),
         );
       }
 
@@ -141,7 +190,7 @@ export class AuthService {
           result: AuditResult.FAILED,
         });
         await this.handleFailedAttempt(user);
-        throw new UnauthorizedException('Credenciales inválidas');
+        throw new UnauthorizedException(ErrorMessages.AUTH.INVALID_CREDENTIALS);
       }
 
       await this.resetFailedAttempts(user);
@@ -182,32 +231,54 @@ export class AuthService {
     }
   }
 
-  async forgotPassword(email: string): Promise<{ message: string }> {
+  async forgotPassword(
+    email: string,
+    context?: AuthContext,
+  ): Promise<{ message: string }> {
     const normalizedEmail = email.toLowerCase().trim();
-    const genericMessage =
-      'Si el correo existe, recibirás instrucciones para restablecer tu contraseña.';
+    const isDev = this.configService.get<string>('NODE_ENV') !== 'production';
 
     const user = await this.authUserRepo.findOne({
       where: { email: normalizedEmail },
     });
 
-    if (
-      !user ||
-      user.estadoVerificacion !== EstadoVerificacionEnum.VERIFICADO
-    ) {
+    // Auditar solicitud de reset (siempre, exista o no el usuario)
+    await this.auditService.logEvent({
+      action: AuditAction.PASSWORD_RESET_REQUEST,
+      userId: user?.id,
+      ipAddress: context?.ip,
+      userAgent: context?.userAgent,
+      result: user ? AuditResult.SUCCESS : AuditResult.FAILED,
+      metadata: { email: normalizedEmail, userExists: !!user },
+    });
+
+    // En producción: mensaje genérico para prevenir enumeración de usuarios
+    // En desarrollo: mensajes específicos para debugging
+    if (!user) {
       this.logger.warn(
-        `Solicitud de reset para email no válido: ${normalizedEmail}`,
+        `Solicitud de reset para email no registrado: ${normalizedEmail}`,
       );
-      return { message: genericMessage };
+      if (isDev) {
+        throw new NotFoundException(ErrorMessages.AUTH.EMAIL_NOT_FOUND);
+      }
+      return { message: ErrorMessages.AUTH.RESET_EMAIL_SENT };
+    }
+
+    if (user.estadoVerificacion !== EstadoVerificacionEnum.VERIFICADO) {
+      this.logger.warn(
+        `Solicitud de reset para usuario no verificado: ${normalizedEmail}`,
+      );
+      if (isDev) {
+        throw new BadRequestException(ErrorMessages.USER.NOT_VERIFIED);
+      }
+      return { message: ErrorMessages.AUTH.RESET_EMAIL_SENT };
     }
 
     const limitKey = `${this.RESET_LIMIT_PREFIX}${user.id}`;
     const attempts = await this.redisService.get(limitKey);
 
     if (attempts && Number(attempts) >= this.MAX_RESET_ATTEMPTS) {
-      throw new ForbiddenException(
-        'Has excedido el límite de solicitudes. Intenta en 1 hora.',
-      );
+      throw new ForbiddenException(ErrorMessages.AUTH.RESET_LIMIT_EXCEEDED);
     }
 
     const activeTokenKey = `${this.RESET_ACTIVE_PREFIX}${user.id}`;
@@ -236,12 +307,13 @@ export class AuthService {
       resetUrl,
     });
 
-    return { message: genericMessage };
+    return { message: ErrorMessages.AUTH.RESET_EMAIL_SENT };
   }
 
   async resetPassword(
     token: string,
     newPassword: string,
+    context?: AuthContext,
   ): Promise<{ message: string }> {
     const sanitizedToken = token.trim();
 
@@ -249,14 +321,14 @@ export class AuthService {
     const uuidRegex =
       /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
     if (!uuidRegex.test(sanitizedToken)) {
-      throw new BadRequestException('Token inválido');
+      throw new BadRequestException(ErrorMessages.AUTH.RESET_TOKEN_INVALID);
     }
 
     const redisKey = `${this.RESET_PREFIX}${sanitizedToken}`;
     const userId = await this.redisService.get(redisKey);
 
     if (!userId) {
-      throw new BadRequestException('El enlace es inválido o ha expirado');
+      throw new BadRequestException(ErrorMessages.AUTH.RESET_TOKEN_INVALID);
     }
 
     const user = await this.authUserRepo.findOne({
@@ -265,7 +337,7 @@ export class AuthService {
     });
 
     if (!user) {
-      throw new BadRequestException('Usuario no encontrado');
+      throw new NotFoundException(ErrorMessages.USER.NOT_FOUND);
     }
 
     user.credential.passwordHash = await bcrypt.hash(newPassword, 12);
@@ -282,30 +354,60 @@ export class AuthService {
       28800,
     );
 
-    return { message: 'Contraseña restablecida correctamente' };
+    // Auditar reset completado
+    await this.auditService.logEvent({
+      action: AuditAction.PASSWORD_RESET_COMPLETE,
+      userId: user.id,
+      ipAddress: context?.ip,
+      userAgent: context?.userAgent,
+      result: AuditResult.SUCCESS,
+    });
+
+    return { message: ErrorMessages.AUTH.PASSWORD_RESET_SUCCESS };
   }
 
-  async logout(jti: string, expSeconds: number): Promise<{ message: string }> {
+  async logout(
+    jti: string,
+    expSeconds: number,
+    userId?: string,
+    context?: AuthContext,
+  ): Promise<{ message: string }> {
     if (expSeconds > 0) {
       const redisKey = `${this.REVOKE_PREFIX}${jti}`;
       await this.redisService.set(redisKey, 'REVOKED', expSeconds);
     }
 
-    return { message: 'Sesión cerrada correctamente' };
+    // Auditar logout
+    if (userId) {
+      await this.auditService.logEvent({
+        action: AuditAction.LOGOUT,
+        userId,
+        ipAddress: context?.ip,
+        userAgent: context?.userAgent,
+        result: AuditResult.SUCCESS,
+      });
+    }
+
+    return { message: ErrorMessages.AUTH.LOGOUT_SUCCESS };
   }
 
-  async changePassword(userId: string, currentPass: string, newPass: string) {
+  async changePassword(
+    userId: string,
+    currentPass: string,
+    newPass: string,
+    context?: AuthContext,
+  ) {
     const user = await this.authUserRepo.findOne({
       where: { id: userId },
       relations: ['credential'],
     });
 
     if (!user) {
-      throw new BadRequestException('Usuario no encontrado');
+      throw new NotFoundException(ErrorMessages.USER.NOT_FOUND);
     }
 
     if (user.estadoVerificacion !== EstadoVerificacionEnum.VERIFICADO) {
-      throw new BadRequestException('Usuario no verificado');
+      throw new BadRequestException(ErrorMessages.USER.NOT_VERIFIED);
     }
 
     const valid = await bcrypt.compare(
@@ -314,19 +416,37 @@ export class AuthService {
     );
 
     if (!valid) {
-      throw new BadRequestException('La contraseña actual es incorrecta');
+      // Auditar intento fallido
+      await this.auditService.logEvent({
+        action: AuditAction.PASSWORD_CHANGE_FAILED,
+        userId,
+        ipAddress: context?.ip,
+        userAgent: context?.userAgent,
+        result: AuditResult.FAILED,
+        metadata: { reason: 'invalid_current_password' },
+      });
+      throw new BadRequestException(
+        ErrorMessages.AUTH.INVALID_CURRENT_PASSWORD,
+      );
     }
 
     if (await bcrypt.compare(newPass, user.credential.passwordHash)) {
-      throw new BadRequestException(
-        'La nueva contraseña no puede ser igual a la anterior',
-      );
+      throw new BadRequestException(ErrorMessages.AUTH.PASSWORD_SAME_AS_OLD);
     }
 
     user.credential.passwordHash = await bcrypt.hash(newPass, 12);
     await this.authUserRepo.save(user);
 
-    return { message: 'Contraseña actualizada correctamente' };
+    // Auditar cambio exitoso
+    await this.auditService.logEvent({
+      action: AuditAction.PASSWORD_CHANGE,
+      userId,
+      ipAddress: context?.ip,
+      userAgent: context?.userAgent,
+      result: AuditResult.SUCCESS,
+    });
+
+    return { message: ErrorMessages.AUTH.PASSWORD_CHANGE_SUCCESS };
   }
 
   private async handleFailedAttempt(user: AuthUser) {
@@ -372,28 +492,43 @@ export class AuthService {
     });
 
     if (!user) {
-      throw new BadRequestException('Usuario no encontrado');
+      throw new NotFoundException(ErrorMessages.USER.NOT_FOUND);
     }
 
     return user;
   }
 
   async verifyUser(userId: string): Promise<void> {
-    const user = await this.authUserRepo.findOne({
-      where: { id: userId },
-    });
+    const queryRunner = this.dataSource.createQueryRunner();
+    await queryRunner.connect();
+    await queryRunner.startTransaction();
 
-    if (!user) {
-      throw new BadRequestException('Usuario no encontrado');
+    try {
+      const user = await queryRunner.manager.findOne(AuthUser, {
+        where: { id: userId },
+      });
+
+      if (!user) {
+        throw new NotFoundException(ErrorMessages.USER.NOT_FOUND);
+      }
+
+      if (user.estadoVerificacion === EstadoVerificacionEnum.VERIFICADO) {
+        await queryRunner.rollbackTransaction();
+        return; // Usuario ya verificado, no hacer nada
+      }
+
+      user.estadoVerificacion = EstadoVerificacionEnum.VERIFICADO;
+      user.rol = RolUsuarioEnum.PASAJERO;
+
+      await queryRunner.manager.save(user);
+      await queryRunner.commitTransaction();
+
+      this.logger.log(`User ${userId} verified successfully`);
+    } catch (error) {
+      await queryRunner.rollbackTransaction();
+      throw error;
+    } finally {
+      await queryRunner.release();
     }
-
-    if (user.estadoVerificacion === EstadoVerificacionEnum.VERIFICADO) {
-      return;
-    }
-
-    user.estadoVerificacion = EstadoVerificacionEnum.VERIFICADO;
-    user.rol = RolUsuarioEnum.PASAJERO;
-
-    await this.authUserRepo.save(user);
   }
 }

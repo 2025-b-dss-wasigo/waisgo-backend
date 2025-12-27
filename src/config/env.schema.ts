@@ -35,5 +35,22 @@ export const envSchema = Joi.object({
   MAIL_PASS: Joi.string().min(8).required(),
   MAIL_FROM: Joi.string().required(),
 
+  // Rate Limiting (Throttler)
+  THROTTLE_TTL: Joi.number().min(1000).default(60000),
+  THROTTLE_LIMIT: Joi.number().min(1).default(100),
+
   CLEANUP_UNVERIFIED_DAYS: Joi.number().min(1).max(30).default(7),
+
+  // OTP Configuration
+  OTP_EXPIRATION_MINUTES: Joi.number().min(1).max(60).default(15),
+  MAX_OTP_ATTEMPTS: Joi.number().min(1).max(10).default(3),
+  MAX_OTP_RESENDS: Joi.number().min(1).max(10).default(3),
+
+  // Security - Account blocking
+  MAX_FAILED_ATTEMPTS: Joi.number().min(1).max(20).default(5),
+  BLOCK_TIME_MINUTES: Joi.number().min(1).max(1440).default(15),
+
+  // Password reset
+  RESET_TOKEN_EXPIRY_MINUTES: Joi.number().min(5).max(120).default(30),
+  MAX_RESET_ATTEMPTS: Joi.number().min(1).max(10).default(3),
 });
