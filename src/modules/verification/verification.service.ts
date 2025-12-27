@@ -28,7 +28,9 @@ export class VerificationService {
    * Valida que el userId sea un UUID válido
    */
   private validateUserId(userId: string): void {
-    if (!isUUID(userId)) {
+    const validate = isUUID as unknown as (str: string) => boolean;
+
+    if (!validate(userId)) {
       throw new BadRequestException('ID de usuario inválido');
     }
   }
