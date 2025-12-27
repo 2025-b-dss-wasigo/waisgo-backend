@@ -3,6 +3,8 @@ import {
   Controller,
   HttpCode,
   HttpStatus,
+  ParseUUIDPipe,
+  Patch,
   Post,
   Req,
 } from '@nestjs/common';
@@ -22,11 +24,37 @@ import { ResetPasswordDto } from './Dto/reset-password.dto';
 import { Public } from '../common/Decorators/public.decorator';
 import { User } from '../common/Decorators/user.decorator';
 import type { JwtPayload } from '../common/types/jwt-payload.type';
+import { RegisterUserDto } from './Dto/register-user.dto';
+import { UpdatePasswordDto } from './Dto/update-password.dto';
+import { RolUsuarioEnum } from './Enum/users-roles.enum';
+import { Roles } from '../common/Decorators/roles.decorator';
 
 @ApiTags('Auth')
 @Controller('auth')
 export class AuthController {
+  private readonly uuidPipe = new ParseUUIDPipe({ version: '4' });
+
   constructor(private readonly authService: AuthService) {}
+
+  private async validateUserId(userId: string): Promise<string> {
+    return this.uuidPipe.transform(userId, { type: 'custom' });
+  }
+
+  @Public()
+  @Post('register')
+  @ApiOperation({ summary: 'Registrar un nuevo usuario' })
+  @ApiResponse({
+    status: 201,
+    description:
+      'Usuario registrado exitosamente. Se enviará un correo de verificación.',
+  })
+  @ApiResponse({
+    status: 400,
+    description: 'Datos inválidos o correo ya registrado.',
+  })
+  async register(@Body() dto: RegisterUserDto) {
+    return this.authService.register(dto);
+  }
 
   @Public()
   @Post('login')
@@ -96,5 +124,45 @@ export class AuthController {
     const expSeconds = Math.max(0, user.exp - nowInSeconds);
 
     return this.authService.logout(user.jti, expSeconds);
+  }
+
+  @Roles(
+    RolUsuarioEnum.PASAJERO,
+    RolUsuarioEnum.ADMIN,
+    RolUsuarioEnum.CONDUCTOR,
+  )
+  @Patch('change-password')
+  @HttpCode(HttpStatus.OK)
+  @ApiBearerAuth('access-token')
+  @ApiOperation({ summary: 'Cambiar contraseña del usuario autenticado' })
+  @ApiResponse({
+    status: 200,
+    description:
+      'Contraseña actualizada correctamente. Todas las sesiones anteriores serán revocadas.',
+  })
+  @ApiResponse({
+    status: 400,
+    description:
+      'Contraseña actual incorrecta o la nueva contraseña no cumple los requisitos.',
+  })
+  @ApiResponse({
+    status: 401,
+    description: 'Token no proporcionado o inválido.',
+  })
+  @ApiResponse({
+    status: 403,
+    description: 'Acceso denegado para su rol.',
+  })
+  async changePassword(
+    @User() user: JwtPayload,
+    @Body() dto: UpdatePasswordDto,
+  ) {
+    const safeUserId = await this.validateUserId(user.id);
+
+    return this.authService.changePassword(
+      safeUserId,
+      dto.currentPassword,
+      dto.newPassword,
+    );
   }
 }

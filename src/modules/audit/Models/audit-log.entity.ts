@@ -39,6 +39,9 @@ export class AuditLog {
   })
   result: AuditResult | null;
 
+  @Column({ type: 'jsonb', nullable: true })
+  metadata: Record<string, unknown> | null;
+
   @CreateDateColumn()
   createdAt: Date;
 }

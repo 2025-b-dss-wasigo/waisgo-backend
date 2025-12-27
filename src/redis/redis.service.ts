@@ -9,7 +9,7 @@ import Redis from 'ioredis';
 
 @Injectable()
 export class RedisService implements OnModuleInit, OnModuleDestroy {
-  private readonly logger = new Logger('RedisService');
+  private readonly logger = new Logger(RedisService.name);
   private client: Redis;
 
   constructor(private readonly configService: ConfigService) {}
@@ -21,6 +21,13 @@ export class RedisService implements OnModuleInit, OnModuleDestroy {
       password: this.configService.get<string>('REDIS_PASSWORD'),
       connectTimeout: 10000,
       maxRetriesPerRequest: 3,
+      retryStrategy: (times: number) => {
+        if (times > 3) {
+          this.logger.error('Redis connection failed after 3 retries');
+          return null;
+        }
+        return Math.min(times * 200, 2000);
+      },
     });
 
     this.client.on('connect', () => {
@@ -28,12 +35,19 @@ export class RedisService implements OnModuleInit, OnModuleDestroy {
     });
 
     this.client.on('error', (err) => {
-      this.logger.error('Redis error', err);
+      this.logger.error('Redis error', err.message);
+    });
+
+    this.client.on('close', () => {
+      this.logger.warn('Redis connection closed');
     });
   }
 
   async onModuleDestroy() {
-    await this.client.quit();
+    if (this.client) {
+      await this.client.quit();
+      this.logger.log('Redis connection closed gracefully');
+    }
   }
 
   getClient(): Redis {
@@ -111,5 +125,33 @@ export class RedisService implements OnModuleInit, OnModuleDestroy {
     pipeline.set(resendKey, resendCount + 1, 'EX', 60 * 60);
 
     await pipeline.exec();
+  }
+
+  async isUserSessionRevoked(
+    userId: string,
+    tokenIssuedAt: number,
+  ): Promise<boolean> {
+    const uuidRegex =
+      /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+    if (!uuidRegex.test(userId)) {
+      return true;
+    }
+
+    const revokedAt = await this.client.get(`revoke:user:${userId}`);
+    if (!revokedAt) return false;
+
+    const revokedTimestamp = Number.parseInt(revokedAt, 10);
+    return tokenIssuedAt < revokedTimestamp;
+  }
+
+  async exists(key: string): Promise<boolean> {
+    this.validateKey(key);
+    const result = await this.client.exists(key);
+    return result === 1;
+  }
+
+  async ttl(key: string): Promise<number> {
+    this.validateKey(key);
+    return this.client.ttl(key);
   }
 }

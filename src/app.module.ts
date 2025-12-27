@@ -15,7 +15,6 @@ import { MailModule } from './modules/mail/mail.module';
 import { OtpModule } from './modules/otp/otp.module';
 import { PaymentsModule } from './modules/payments/payments.module';
 import { RoutesModule } from './modules/routes/routes.module';
-import { UsersModule } from './modules/users/users.module';
 import { VerificationModule } from './modules/verification/verification.module';
 import { RedisModule } from './redis/redis.module';
 import { envSchema } from './config/env.schema';
@@ -65,7 +64,6 @@ import { RatingsModule } from './modules/ratings/ratings.module';
     AuditModule,
     CommonModule,
     AuthModule,
-    UsersModule,
     VerificationModule,
     OtpModule,
     DriversModule,

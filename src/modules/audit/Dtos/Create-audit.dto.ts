@@ -8,6 +8,7 @@ import {
   IsString,
   IsUUID,
   Length,
+  IsObject,
 } from 'class-validator';
 
 export class CreateAuditDto {
@@ -31,4 +32,8 @@ export class CreateAuditDto {
   @IsOptional()
   @IsEnum(AuditResult)
   result?: AuditResult;
+
+  @IsOptional()
+  @IsObject()
+  metadata?: Record<string, unknown>;
 }

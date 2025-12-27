@@ -6,7 +6,7 @@ import {
   Logger,
 } from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
-import { RolUsuarioEnum } from '../../users/Enums/users-roles.enum';
+import { RolUsuarioEnum } from '../Enum/users-roles.enum';
 import { ROLES_KEY } from 'src/modules/common/Decorators/roles.decorator';
 import type { Request } from 'express';
 

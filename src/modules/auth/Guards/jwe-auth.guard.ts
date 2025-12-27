@@ -11,12 +11,24 @@ import { Reflector } from '@nestjs/core';
 import { IS_PUBLIC_KEY } from 'src/modules/common/Decorators/public.decorator';
 import { RedisService } from 'src/redis/redis.service';
 import type { Request } from 'express';
-import { RolUsuarioEnum } from 'src/modules/users/Enums/users-roles.enum';
+import { RolUsuarioEnum } from '../Enum/users-roles.enum';
+
+interface JwtPayloadInternal {
+  sub: string;
+  role: RolUsuarioEnum;
+  isVerified: boolean;
+  alias?: string;
+  jti: string;
+  iat: number;
+  exp: number;
+  iss: string;
+  aud: string;
+}
 
 @Injectable()
 export class JweAuthGuard implements CanActivate {
   private readonly secretKey: Uint8Array;
-  private readonly logger = new Logger('JweAuthGuard');
+  private readonly logger = new Logger(JweAuthGuard.name);
 
   constructor(
     private readonly configService: ConfigService,
@@ -42,20 +54,10 @@ export class JweAuthGuard implements CanActivate {
     if (isPublic) return true;
 
     const request = context.switchToHttp().getRequest<Request>();
-    const authHeader = request.headers['authorization'];
+    const token = this.extractTokenFromHeader(request);
 
-    if (
-      !authHeader ||
-      typeof authHeader !== 'string' ||
-      !authHeader.startsWith('Bearer ')
-    ) {
+    if (!token) {
       throw new UnauthorizedException('Token requerido');
-    }
-
-    const token = authHeader.slice(7);
-
-    if (token.length > 2000) {
-      throw new UnauthorizedException('Token inválido');
     }
 
     try {
@@ -64,54 +66,80 @@ export class JweAuthGuard implements CanActivate {
         audience: 'wasigo-app',
       });
 
-      if (!payload.sub || !payload.jti || !payload.role) {
+      const jwtPayload = payload as unknown as JwtPayloadInternal;
+
+      // Validar campos requeridos
+      if (!jwtPayload.sub || !jwtPayload.jti || !jwtPayload.role) {
         throw new UnauthorizedException('Token malformado');
       }
 
-      if (payload.exp && payload.exp < Math.floor(Date.now() / 1000)) {
+      if (jwtPayload.exp && jwtPayload.exp < Math.floor(Date.now() / 1000)) {
         throw new UnauthorizedException('Token expirado');
       }
 
-      if (payload.jti) {
-        const isRevoked = await this.redisService.isTokenRevoked(
-          String(payload.jti),
-        );
-        if (isRevoked) {
-          throw new UnauthorizedException('Token revocado');
-        }
+      // Verificar si el token ha sido revocado individualmente
+      const isRevoked = await this.redisService.isTokenRevoked(jwtPayload.jti);
+      if (isRevoked) {
+        throw new UnauthorizedException('Token revocado');
       }
 
-      const revocationTimestamp = await this.redisService.get(
-        `revoke:user:${String(payload.sub)}`,
+      // Verificar si todas las sesiones del usuario han sido revocadas
+      const isUserSessionRevoked = await this.redisService.isUserSessionRevoked(
+        jwtPayload.sub,
+        jwtPayload.iat,
       );
-
-      if (revocationTimestamp) {
-        if ((payload.iat ?? 0) < Number(revocationTimestamp)) {
-          throw new UnauthorizedException(
-            'Sesión expirada por cambio de contraseña',
-          );
-        }
+      if (isUserSessionRevoked) {
+        throw new UnauthorizedException(
+          'Sesión expirada por cambio de contraseña',
+        );
       }
 
       request.user = {
-        id: String(payload.sub),
-        sub: String(payload.sub),
-        role: payload.role as RolUsuarioEnum,
-        isVerified: Boolean(payload.isVerified),
-        alias: String(payload.alias),
-        jti: String(payload.jti),
-        exp: Number(payload.exp),
-        iat: Number(payload.iat),
+        id: jwtPayload.sub,
+        sub: jwtPayload.sub,
+        role: jwtPayload.role,
+        isVerified: Boolean(jwtPayload.isVerified),
+        alias: jwtPayload.alias ?? '',
+        jti: jwtPayload.jti,
+        exp: jwtPayload.exp,
+        iat: jwtPayload.iat,
       };
 
       return true;
     } catch (error) {
       if (error instanceof UnauthorizedException) throw error;
 
-      this.logger.error(
-        `Token inválido: ${error instanceof Error ? error.message : 'Error desconocido'}`,
+      this.logger.warn(
+        `Token validation failed: ${error instanceof Error ? error.message : 'Unknown error'}`,
       );
       throw new UnauthorizedException('Token inválido o expirado');
     }
+  }
+
+  private extractTokenFromHeader(request: Request): string | undefined {
+    const authHeader = request.headers.authorization;
+
+    if (!authHeader || typeof authHeader !== 'string') {
+      return undefined;
+    }
+
+    const [type, token] = authHeader.split(' ');
+
+    if (type !== 'Bearer' || !token) {
+      return undefined;
+    }
+
+    // Validación de longitud máxima
+    if (token.length > 2000) {
+      return undefined;
+    }
+
+    // Validación básica del formato del token JWE (5 partes separadas por puntos)
+    const parts = token.split('.');
+    if (parts.length !== 5) {
+      return undefined;
+    }
+
+    return token;
   }
 }
