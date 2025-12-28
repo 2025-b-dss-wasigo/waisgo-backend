@@ -20,6 +20,7 @@ import { RedisModule } from './redis/redis.module';
 import { envSchema } from './config/env.schema';
 import { BusinessModule } from './modules/business/business.module';
 import { RatingsModule } from './modules/ratings/ratings.module';
+import { StorageModule } from './modules/storage/storage.module';
 
 @Module({
   imports: [
@@ -77,6 +78,7 @@ import { RatingsModule } from './modules/ratings/ratings.module';
     AdminModule,
     BusinessModule,
     RatingsModule,
+    StorageModule,
   ],
   providers: [
     {

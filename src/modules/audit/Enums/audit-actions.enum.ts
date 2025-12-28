@@ -1,10 +1,4 @@
-/**
- * Acciones de auditoría para WasiGo
- * Basadas en las Reglas de Negocio V0.2.0
- *
- * Estas acciones se registran en la tabla audit_logs
- * y serán visualizadas en Grafana mediante SQL DataSource
- */
+// Todo: Implementar todos los tipos de acciones de auditoría según los requisitos del sistema y aplicar migraciones necesarias, cuando se acaben los modulos faltantes
 export enum AuditAction {
   // ============ AUTH ============
   /** Usuario se registró en el sistema */

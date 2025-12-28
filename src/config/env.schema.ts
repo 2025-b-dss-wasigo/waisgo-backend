@@ -53,4 +53,12 @@ export const envSchema = Joi.object({
   // Password reset
   RESET_TOKEN_EXPIRY_MINUTES: Joi.number().min(5).max(120).default(30),
   MAX_RESET_ATTEMPTS: Joi.number().min(1).max(10).default(3),
+
+  // MinIO Configuration
+  MINIO_ENDPOINT: Joi.string().hostname().required(),
+  MINIO_PORT: Joi.number().port().required(),
+  MINIO_USE_SSL: Joi.boolean().default(false),
+  MINIO_ACCESS_KEY: Joi.string().required(),
+  MINIO_SECRET_KEY: Joi.string().required(),
+  MINIO_PUBLIC_URL: Joi.string().uri().required(),
 });
