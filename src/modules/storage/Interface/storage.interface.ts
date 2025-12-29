@@ -6,4 +6,10 @@ export interface StorageProvider {
     buffer: Buffer;
     mimetype: string;
   }): Promise<string>;
+
+  getSignedUrl(
+    bucket: string,
+    objectPath: string,
+    expiresInSeconds?: number,
+  ): Promise<string>;
 }

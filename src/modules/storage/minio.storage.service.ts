@@ -1,4 +1,4 @@
-import { ConfigService } from '@nestjs/config'; // TODO: Implementar Audit y logger correctamente - Audit-Actions.enum.ts y error-mmessages.constant.ts
+import { ConfigService } from '@nestjs/config';
 import {
   Injectable,
   OnModuleInit,
@@ -18,29 +18,36 @@ export class MinioStorageService implements OnModuleInit, StorageProvider {
 
   onModuleInit() {
     this.client = new Client({
-      endPoint: this.configService.getOrThrow<string>('MINIO_ENDPOINT')!,
-      port: Number(this.configService.get<string>('MINIO_PORT')),
-      useSSL: this.configService.get<string>('MINIO_USE_SSL') === 'true',
-      accessKey: this.configService.getOrThrow<string>('MINIO_ACCESS_KEY')!,
-      secretKey: this.configService.getOrThrow<string>('MINIO_SECRET_KEY')!,
+      endPoint: this.configService.getOrThrow('MINIO_ENDPOINT'),
+      port: Number(this.configService.getOrThrow('MINIO_PORT')),
+      useSSL: this.configService.get('MINIO_USE_SSL') === 'true',
+      accessKey: this.configService.getOrThrow('MINIO_ACCESS_KEY'),
+      secretKey: this.configService.getOrThrow('MINIO_SECRET_KEY'),
     });
   }
 
   async upload(params): Promise<string> {
     const { bucket, folder, filename, buffer, mimetype } = params;
     const safeFilename = filename.replace(/\s+/g, '_');
-    const objectName = path.posix.join(folder, safeFilename);
+    const objectPath = path.posix.join(folder, safeFilename);
 
     try {
-      await this.client.putObject(bucket, objectName, buffer, buffer.length, {
+      await this.client.putObject(bucket, objectPath, buffer, buffer.length, {
         'Content-Type': mimetype,
       });
 
-      const host = this.configService.getOrThrow('MINIO_PUBLIC_URL');
-      return `${host}/${bucket}/${objectName}`;
+      return objectPath;
     } catch (error) {
       this.logger.error(error.message, error.stack);
       throw new InternalServerErrorException('Error al subir el archivo');
     }
+  }
+
+  async getSignedUrl(
+    bucket: string,
+    objectPath: string,
+    expires = 3600,
+  ): Promise<string> {
+    return this.client.presignedGetObject(bucket, objectPath, expires);
   }
 }

@@ -22,4 +22,8 @@ export class StorageService implements StorageProvider {
   upload(params) {
     return this.provider.upload(params);
   }
+
+  getSignedUrl(bucket: string, objectPath: string, expires?: number) {
+    return this.provider.getSignedUrl(bucket, objectPath, expires);
+  }
 }
