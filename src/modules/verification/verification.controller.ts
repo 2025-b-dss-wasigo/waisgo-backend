@@ -21,6 +21,8 @@ import { User } from 'src/modules/common/Decorators/user.decorator';
 import type { JwtPayload } from 'src/modules/common/types/jwt-payload.type';
 import type { AuthContext } from 'src/modules/common/types/auth-context.type';
 import { ErrorMessages } from '../common/constants/error-messages.constant';
+import { Roles } from '../common/Decorators/roles.decorator';
+import { RolUsuarioEnum } from '../auth/Enum/users-roles.enum';
 
 @ApiTags('Verification')
 @Controller('verification')
@@ -50,6 +52,7 @@ export class VerificationController {
     };
   }
 
+  @Roles(RolUsuarioEnum.USER)
   @Post('send')
   @HttpCode(HttpStatus.OK)
   @ApiBearerAuth('access-token')
@@ -87,6 +90,7 @@ export class VerificationController {
     };
   }
 
+  @Roles(RolUsuarioEnum.USER)
   @Post('confirm')
   @HttpCode(HttpStatus.OK)
   @ApiBearerAuth('access-token')

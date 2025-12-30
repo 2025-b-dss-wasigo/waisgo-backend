@@ -5,7 +5,6 @@ import { ScheduleModule } from '@nestjs/schedule';
 import { APP_GUARD } from '@nestjs/core';
 import { ThrottlerGuard, ThrottlerModule } from '@nestjs/throttler';
 
-import { AdminModule } from './modules/admin/admin.module';
 import { AuditModule } from './modules/audit/audit.module';
 import { AuthModule } from './modules/auth/auth.module';
 import { BookingsModule } from './modules/bookings/bookings.module';
@@ -20,6 +19,9 @@ import { RedisModule } from './redis/redis.module';
 import { envSchema } from './config/env.schema';
 import { BusinessModule } from './modules/business/business.module';
 import { RatingsModule } from './modules/ratings/ratings.module';
+import { StorageModule } from './modules/storage/storage.module';
+import { VehicleModule } from './modules/vehicle/vehicle.module';
+import { AdminModule } from './modules/admin/admin.module';
 
 @Module({
   imports: [
@@ -74,9 +76,11 @@ import { RatingsModule } from './modules/ratings/ratings.module';
     RoutesModule,
     BookingsModule,
     PaymentsModule,
-    AdminModule,
     BusinessModule,
     RatingsModule,
+    StorageModule,
+    VehicleModule,
+    AdminModule,
   ],
   providers: [
     {

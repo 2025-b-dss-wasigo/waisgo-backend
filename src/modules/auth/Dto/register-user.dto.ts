@@ -7,18 +7,21 @@ import {
 } from 'class-validator';
 import { Transform } from 'class-transformer';
 import { ApiProperty } from '@nestjs/swagger';
+import { ErrorMessages } from '../../common/constants/error-messages.constant';
 
 export class RegisterUserDto {
   @ApiProperty({
     description: 'Correo institucional (debe ser @epn.edu.ec)',
     example: 'juan.perez@epn.edu.ec',
   })
-  @IsNotEmpty()
-  @IsEmail()
+  @IsNotEmpty({ message: ErrorMessages.VALIDATION.REQUIRED_FIELD('email') })
+  @IsEmail({}, { message: ErrorMessages.VALIDATION.INVALID_FORMAT('email') })
   @Transform(({ value }: { value: unknown }) =>
     typeof value === 'string' ? value.toLowerCase().trim() : value,
   )
-  @Matches(/^[\w.+-]+@epn\.edu\.ec$/)
+  @Matches(/^[\w.+-]+@epn\.edu\.ec$/, {
+    message: ErrorMessages.AUTH.INVALID_EMAIL_DOMAIN,
+  })
   email: string;
 
   @ApiProperty({
@@ -27,12 +30,14 @@ export class RegisterUserDto {
     minLength: 3,
     maxLength: 15,
   })
-  @IsNotEmpty()
+  @IsNotEmpty({ message: ErrorMessages.VALIDATION.REQUIRED_FIELD('nombre') })
   @Transform(({ value }: { value: unknown }) =>
     typeof value === 'string' ? value.trim() : value,
   )
-  @Matches(/^[A-Za-záéíóúÁÉÍÓÚñÑ ]+$/)
-  @Length(3, 15)
+  @Matches(/^[A-Za-záéíóúÁÉÍÓÚñÑ ]+$/, {
+    message: ErrorMessages.VALIDATION.NAME_LETTERS_ONLY,
+  })
+  @Length(3, 15, { message: ErrorMessages.VALIDATION.NAME_LENGTH })
   nombre: string;
 
   @ApiProperty({
@@ -41,23 +46,25 @@ export class RegisterUserDto {
     minLength: 3,
     maxLength: 15,
   })
-  @IsNotEmpty()
+  @IsNotEmpty({ message: ErrorMessages.VALIDATION.REQUIRED_FIELD('apellido') })
   @Transform(({ value }: { value: unknown }) =>
     typeof value === 'string' ? value.trim() : value,
   )
-  @Matches(/^[A-Za-záéíóúÁÉÍÓÚñÑ ]+$/)
-  @Length(3, 15)
+  @Matches(/^[A-Za-záéíóúÁÉÍÓÚñÑ ]+$/, {
+    message: ErrorMessages.VALIDATION.LASTNAME_LETTERS_ONLY,
+  })
+  @Length(3, 15, { message: ErrorMessages.VALIDATION.LASTNAME_LENGTH })
   apellido: string;
 
   @ApiProperty({
     description: 'Número de celular ecuatoriano (formato: 09XXXXXXXX)',
     example: '0987654321',
   })
-  @IsNotEmpty()
+  @IsNotEmpty({ message: ErrorMessages.VALIDATION.REQUIRED_FIELD('celular') })
   @Transform(({ value }: { value: unknown }) =>
     typeof value === 'string' ? value.trim() : value,
   )
-  @Matches(/^09\d{8}$/)
+  @Matches(/^09\d{8}$/, { message: ErrorMessages.VALIDATION.PHONE_FORMAT })
   celular: string;
 
   @ApiProperty({
@@ -67,15 +74,14 @@ export class RegisterUserDto {
     minLength: 7,
     maxLength: 20,
   })
-  @IsNotEmpty()
+  @IsNotEmpty({ message: ErrorMessages.VALIDATION.REQUIRED_FIELD('password') })
   @IsString()
-  @Length(7, 20)
+  @Length(7, 20, { message: ErrorMessages.AUTH.PASSWORD_REQUIREMENTS })
   @Transform(({ value }: { value: unknown }) =>
     typeof value === 'string' ? value.trim() : value,
   )
   @Matches(/^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[^A-Za-z\d]).+$/, {
-    message:
-      'La contraseña debe contener al menos una letra mayúscula, una minúscula, un número y un carácter especial.',
+    message: ErrorMessages.AUTH.PASSWORD_REQUIREMENTS,
   })
   password: string;
 }

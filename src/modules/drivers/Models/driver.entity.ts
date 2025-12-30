@@ -44,6 +44,9 @@ export class Driver {
   @Column({ type: 'timestamp', nullable: true })
   fechaAprobacion: Date | null;
 
+  @Column({ type: 'timestamp', nullable: true })
+  fechaRechazo: Date | null;
+
   @Column({ type: 'text', nullable: true })
   motivoRechazo: string | null;
 

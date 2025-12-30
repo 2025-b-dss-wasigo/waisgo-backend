@@ -1,6 +1,7 @@
-import { IsString, Length, Matches } from 'class-validator';
+import { IsString, Length, Matches, IsNotEmpty } from 'class-validator';
 import { Transform } from 'class-transformer';
 import { ApiProperty } from '@nestjs/swagger';
+import { ErrorMessages } from '../../common/constants/error-messages.constant';
 
 export class ConfirmOtpDto {
   @ApiProperty({
@@ -9,11 +10,14 @@ export class ConfirmOtpDto {
     minLength: 6,
     maxLength: 6,
   })
+  @IsNotEmpty({ message: ErrorMessages.VALIDATION.REQUIRED_FIELD('code') })
   @IsString({ message: 'El código debe ser una cadena de texto' })
-  @Length(6, 6, { message: 'El código debe tener exactamente 6 dígitos' })
+  @Length(6, 6, { message: ErrorMessages.VERIFICATION.CODE_FORMAT_INVALID })
   @Transform(({ value }: { value: unknown }) =>
     typeof value === 'string' ? value.trim() : value,
   )
-  @Matches(/^\d{6}$/, { message: 'El código debe contener solo números' })
+  @Matches(/^\d{6}$/, {
+    message: ErrorMessages.VERIFICATION.CODE_FORMAT_INVALID,
+  })
   code: string;
 }

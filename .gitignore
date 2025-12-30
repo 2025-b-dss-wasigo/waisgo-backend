@@ -65,3 +65,5 @@ ormconfig.migration.js.map
 .vscode
 .scannerwork
 commands.txt
+
+.sonarlint

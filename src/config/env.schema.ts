@@ -53,4 +53,20 @@ export const envSchema = Joi.object({
   // Password reset
   RESET_TOKEN_EXPIRY_MINUTES: Joi.number().min(5).max(120).default(30),
   MAX_RESET_ATTEMPTS: Joi.number().min(1).max(10).default(3),
+
+  MINIO_ENDPOINT: Joi.string().hostname().required(),
+  MINIO_PORT: Joi.number().port().default(9000),
+  MINIO_ACCESS_KEY: Joi.string().required(),
+  MINIO_SECRET_KEY: Joi.string().required(),
+  MINIO_USE_SSL: Joi.boolean().default(false),
+
+  // OCI Configuration
+  OCI_CONFIG_PATH: Joi.string().optional(),
+  OCI_CONFIG_PROFILE: Joi.string().optional(),
+  OCI_NAMESPACE: Joi.string().optional(),
+  OCI_REGION: Joi.string().optional(),
+
+  STORAGE_DRIVER: Joi.string().valid('minio', 'oci').default('minio'),
+  STORAGE_PROFILE_BUCKET: Joi.string().required(),
+  STORAGE_DRIVER_BUCKET: Joi.string().required(),
 });

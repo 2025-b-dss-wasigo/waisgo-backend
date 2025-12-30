@@ -1,3 +1,4 @@
+import { StorageService } from './../storage/storage.service';
 import { Injectable, NotFoundException, Logger } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { BusinessUser } from './Models/business-user.entity';
@@ -5,6 +6,7 @@ import { UserProfile } from './Models/user-profile.entity';
 import { Repository, EntityManager } from 'typeorm';
 import { UpdateProfileDto } from './Dto/update-profile.dto';
 import { ErrorMessages } from '../common/constants/error-messages.constant';
+import { ConfigService } from '@nestjs/config';
 
 @Injectable()
 export class BusinessService {
@@ -15,6 +17,8 @@ export class BusinessService {
     private readonly businessUserRepo: Repository<BusinessUser>,
     @InjectRepository(UserProfile)
     private readonly profileRepo: Repository<UserProfile>,
+    private readonly storageService: StorageService,
+    private readonly config: ConfigService,
   ) {}
 
   private generateAlias(): string {
@@ -158,5 +162,69 @@ export class BusinessService {
       where: { id: userId, isDeleted: false },
       relations: ['profile'],
     });
+  }
+
+  async getMyProfile(userId: string) {
+    const user = await this.businessUserRepo.findOne({
+      where: { id: userId, isDeleted: false },
+      relations: ['profile'],
+    });
+
+    if (!user) {
+      throw new NotFoundException(ErrorMessages.USER.NOT_FOUND);
+    }
+
+    if (!user.profile) {
+      throw new NotFoundException(ErrorMessages.USER.PROFILE_NOT_FOUND);
+    }
+
+    const avatarUrl = user.profile.fotoPerfilUrl
+      ? await this.storageService.getSignedUrl(
+          this.config.getOrThrow('STORAGE_PROFILE_BUCKET'),
+          user.profile.fotoPerfilUrl,
+        )
+      : await this.getDefaultAvatarUrl();
+
+    return {
+      id: user.id,
+      email: user.email,
+      nombre: user.profile.nombre,
+      apellido: user.profile.apellido,
+      celular: user.profile.celular,
+      avatarUrl,
+      rating: user.profile.ratingPromedio,
+      totalViajes: user.profile.totalViajes,
+    };
+  }
+
+  async updateProfilePhoto(
+    userId: string,
+    file: Express.Multer.File,
+  ): Promise<{ message: string }> {
+    const profile = await this.profileRepo.findOne({ where: { userId } });
+
+    if (!profile) {
+      throw new NotFoundException(ErrorMessages.USER.PROFILE_NOT_FOUND);
+    }
+
+    const objectPath = await this.storageService.upload({
+      bucket: this.config.getOrThrow('STORAGE_PROFILE_BUCKET'),
+      folder: 'avatars',
+      filename: `user-${userId}.jpg`,
+      buffer: file.buffer,
+      mimetype: file.mimetype,
+    });
+
+    profile.fotoPerfilUrl = objectPath;
+    await this.profileRepo.save(profile);
+
+    return { message: 'Foto de perfil actualizada correctamente' };
+  }
+
+  private getDefaultAvatarUrl(): Promise<string> {
+    return this.storageService.getSignedUrl(
+      this.config.getOrThrow('STORAGE_PROFILE_BUCKET'),
+      'avatars/default.jpg',
+    );
   }
 }

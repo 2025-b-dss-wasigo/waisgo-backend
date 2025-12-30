@@ -1,6 +1,7 @@
 import { IsOptional, IsString, Length, Matches } from 'class-validator';
 import { Transform } from 'class-transformer';
 import { ApiPropertyOptional } from '@nestjs/swagger';
+import { ErrorMessages } from '../../common/constants/error-messages.constant';
 
 export class UpdateProfileDto {
   @ApiPropertyOptional({
@@ -11,12 +12,12 @@ export class UpdateProfileDto {
   })
   @IsOptional()
   @IsString()
-  @Length(3, 15)
+  @Length(3, 15, { message: ErrorMessages.VALIDATION.NAME_LENGTH })
   @Transform(({ value }: { value: unknown }) =>
     typeof value === 'string' ? value.trim() : value,
   )
   @Matches(/^[A-Za-zÁÉÍÓÚáéíóúÑñ\s]+$/, {
-    message: 'El nombre solo puede contener letras',
+    message: ErrorMessages.VALIDATION.NAME_LETTERS_ONLY,
   })
   nombre?: string;
 
@@ -28,12 +29,12 @@ export class UpdateProfileDto {
   })
   @IsOptional()
   @IsString()
-  @Length(3, 15)
+  @Length(3, 15, { message: ErrorMessages.VALIDATION.LASTNAME_LENGTH })
   @Transform(({ value }: { value: unknown }) =>
     typeof value === 'string' ? value.trim() : value,
   )
   @Matches(/^[A-Za-zÁÉÍÓÚáéíóúÑñ\s]+$/, {
-    message: 'El apellido solo puede contener letras',
+    message: ErrorMessages.VALIDATION.LASTNAME_LETTERS_ONLY,
   })
   apellido?: string;
 
@@ -47,7 +48,7 @@ export class UpdateProfileDto {
     typeof value === 'string' ? value.trim() : value,
   )
   @Matches(/^09\d{8}$/, {
-    message: 'Celular inválido',
+    message: ErrorMessages.VALIDATION.PHONE_FORMAT,
   })
   celular?: string;
 }
