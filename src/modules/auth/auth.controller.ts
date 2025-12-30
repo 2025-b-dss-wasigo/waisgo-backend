@@ -150,6 +150,7 @@ export class AuthController {
     RolUsuarioEnum.PASAJERO,
     RolUsuarioEnum.ADMIN,
     RolUsuarioEnum.CONDUCTOR,
+    RolUsuarioEnum.USER,
   )
   @Patch('change-password')
   @HttpCode(HttpStatus.OK)

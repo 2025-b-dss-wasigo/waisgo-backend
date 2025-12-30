@@ -531,4 +531,19 @@ export class AuthService {
       await queryRunner.release();
     }
   }
+
+  /**
+   * Obtiene los correos de todos los administradores activos
+   */
+  async getAdminEmails(): Promise<string[]> {
+    const admins = await this.authUserRepo.find({
+      where: {
+        rol: RolUsuarioEnum.ADMIN,
+        estadoVerificacion: EstadoVerificacionEnum.VERIFICADO,
+      },
+      select: ['email'],
+    });
+
+    return admins.map((admin) => admin.email);
+  }
 }

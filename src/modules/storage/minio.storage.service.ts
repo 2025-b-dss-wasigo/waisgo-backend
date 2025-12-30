@@ -6,7 +6,7 @@ import {
   InternalServerErrorException,
 } from '@nestjs/common';
 import { Client } from 'minio';
-import * as path from 'path';
+import * as path from 'node:path';
 import { StorageProvider } from './Interface/storage.interface';
 
 @Injectable()
@@ -28,7 +28,7 @@ export class MinioStorageService implements OnModuleInit, StorageProvider {
 
   async upload(params): Promise<string> {
     const { bucket, folder, filename, buffer, mimetype } = params;
-    const safeFilename = filename.replace(/\s+/g, '_');
+    const safeFilename = filename.replaceAll(/\s+/g, '_');
     const objectPath = path.posix.join(folder, safeFilename);
 
     try {

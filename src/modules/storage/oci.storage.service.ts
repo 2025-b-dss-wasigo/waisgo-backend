@@ -3,7 +3,7 @@ import { ConfigService } from '@nestjs/config';
 import { StorageProvider } from './Interface/storage.interface';
 import * as common from 'oci-common';
 import * as objectstorage from 'oci-objectstorage';
-import * as path from 'path';
+import * as path from 'node:path';
 
 @Injectable()
 export class OciStorageService implements StorageProvider {
@@ -28,7 +28,7 @@ export class OciStorageService implements StorageProvider {
   async upload(params): Promise<string> {
     const { bucket, folder, filename, buffer, mimetype } = params;
 
-    const safeFilename = filename.replace(/\s+/g, '_');
+    const safeFilename = filename.replaceAll(/\s+/g, '_');
     const objectName = path.posix.join(folder, safeFilename);
 
     await this.client.putObject({

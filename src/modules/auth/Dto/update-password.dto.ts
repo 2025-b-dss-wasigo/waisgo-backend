@@ -1,11 +1,15 @@
-import { IsString, Length, Matches } from 'class-validator';
+import { IsString, Length, Matches, IsNotEmpty } from 'class-validator';
 import { Transform } from 'class-transformer';
 import { ApiProperty } from '@nestjs/swagger';
+import { ErrorMessages } from '../../common/constants/error-messages.constant';
 
 export class UpdatePasswordDto {
   @ApiProperty({
     description: 'Contraseña actual del usuario',
     example: 'MiContraseña.123',
+  })
+  @IsNotEmpty({
+    message: ErrorMessages.VALIDATION.REQUIRED_FIELD('currentPassword'),
   })
   @IsString()
   @Transform(({ value }: { value: unknown }) =>
@@ -20,14 +24,16 @@ export class UpdatePasswordDto {
     minLength: 7,
     maxLength: 20,
   })
+  @IsNotEmpty({
+    message: ErrorMessages.VALIDATION.REQUIRED_FIELD('newPassword'),
+  })
   @IsString()
-  @Length(7, 20)
+  @Length(7, 20, { message: ErrorMessages.AUTH.PASSWORD_REQUIREMENTS })
   @Transform(({ value }: { value: unknown }) =>
     typeof value === 'string' ? value.trim() : value,
   )
   @Matches(/^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[/*.@-_#]).+$/, {
-    message:
-      'La contraseña debe tener mayúsculas, minúsculas, números y caracteres especiales',
+    message: ErrorMessages.AUTH.PASSWORD_REQUIREMENTS,
   })
   newPassword: string;
 }

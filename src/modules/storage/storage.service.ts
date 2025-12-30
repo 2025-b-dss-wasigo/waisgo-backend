@@ -6,7 +6,7 @@ import { OciStorageService } from './oci.storage.service';
 
 @Injectable()
 export class StorageService implements StorageProvider {
-  private provider: StorageProvider;
+  private readonly provider: StorageProvider;
 
   constructor(
     private readonly config: ConfigService,

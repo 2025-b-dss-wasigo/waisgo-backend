@@ -2,6 +2,11 @@ import { SendResetPasswordOptions } from './Dto/Send-ResetPassword.dto';
 import { SendVerificationEmailOptions } from './Dto/Send-VerificationEmail.dto';
 import { SendGenericEmailDto } from './Dto/Send-GenericEmail.dto';
 import {
+  SendDriverApplicationNotificationOptions,
+  SendDriverApprovedNotificationOptions,
+  SendDriverRejectedNotificationOptions,
+} from './Dto/driver-notification.dto';
+import {
   Injectable,
   Logger,
   InternalServerErrorException,
@@ -132,5 +137,66 @@ export class MailService {
         'Error al enviar el correo electrónico. Por favor intente más tarde.',
       );
     }
+  }
+
+  /**
+   * Envía notificación a administradores sobre nueva solicitud de conductor
+   */
+  async sendDriverApplicationNotification(
+    adminEmails: string[],
+    options: SendDriverApplicationNotificationOptions,
+  ): Promise<void> {
+    for (const adminEmail of adminEmails) {
+      try {
+        await this.send({
+          to: adminEmail,
+          subject: 'Nueva Solicitud de Conductor – WasiGo',
+          template: 'driver-application-submitted',
+          context: {
+            applicantName: this.sanitizeForTemplate(options.applicantName),
+            applicantEmail: options.applicantEmail,
+            paypalEmail: options.paypalEmail,
+            applicationDate: options.applicationDate,
+          },
+        });
+      } catch (error) {
+        this.logger.error(
+          `Failed to send driver application notification to ${adminEmail}: ${error instanceof Error ? error.message : 'Unknown'}`,
+        );
+      }
+    }
+  }
+
+  /**
+   * Envía notificación de aprobación al conductor
+   */
+  async sendDriverApprovedNotification(
+    options: SendDriverApprovedNotificationOptions,
+  ): Promise<void> {
+    await this.send({
+      to: options.to,
+      subject: '¡Tu solicitud de conductor ha sido aprobada! – WasiGo',
+      template: 'driver-application-approved',
+      context: {
+        driverName: this.sanitizeForTemplate(options.driverName),
+      },
+    });
+  }
+
+  /**
+   * Envía notificación de rechazo al conductor
+   */
+  async sendDriverRejectedNotification(
+    options: SendDriverRejectedNotificationOptions,
+  ): Promise<void> {
+    await this.send({
+      to: options.to,
+      subject: 'Actualización sobre tu solicitud de conductor – WasiGo',
+      template: 'driver-application-rejected',
+      context: {
+        driverName: this.sanitizeForTemplate(options.driverName),
+        rejectionReason: this.sanitizeForTemplate(options.rejectionReason),
+      },
+    });
   }
 }

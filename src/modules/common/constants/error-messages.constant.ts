@@ -71,22 +71,34 @@ export const ErrorMessages = {
     EMAIL_MAX_LENGTH: 'El correo no puede superar 30 caracteres',
   },
 
-  // ============ DRIVER REQUEST (RN-007, RN-008) ============ (No usados aún)
+  // ============ DRIVER REQUEST (RN-007, RN-008) ============
   DRIVER: {
     ONLY_PASSENGERS_CAN_REQUEST:
       'Solo usuarios verificados pueden solicitar ser conductor',
     REQUEST_PENDING: 'Ya tienes una solicitud en proceso',
     REQUEST_REJECTED_COOLDOWN:
       'Debes esperar 7 días después del rechazo para volver a solicitar',
+    NO_DRIVER_REQUEST: 'No tienes una solicitud de conductor activa',
+    DRIVER_NOT_FOUND: 'Conductor no encontrado',
+    DRIVER_NOT_APPROVED: 'Tu solicitud de conductor no está aprobada',
+    NOT_A_DRIVER: 'No eres un conductor registrado',
     VEHICLE_BRAND_LENGTH: 'La marca debe tener entre 2 y 15 caracteres',
     VEHICLE_MODEL_LENGTH: 'El modelo debe tener entre 2 y 15 caracteres',
     VEHICLE_COLOR_LENGTH: 'El color debe tener entre 3 y 10 caracteres',
+    VEHICLE_NOT_FOUND: 'Vehículo no encontrado',
+    VEHICLE_CREATED: 'Vehículo registrado correctamente',
+    VEHICLE_UPDATED: 'Vehículo actualizado correctamente',
+    VEHICLE_DISABLED: 'Vehículo desactivado correctamente',
     PLATE_FORMAT: 'La placa debe tener 3 letras y 4 números (ej: ABC1234)',
     PLATE_ALREADY_EXISTS: 'Esta placa ya está registrada',
     SEATS_RANGE: 'Los asientos disponibles deben ser entre 1 y 6',
+    FILE_REQUIRED: 'El archivo es requerido',
     FILE_TOO_LARGE: 'El archivo no puede superar 2 MB',
     INVALID_FILE_FORMAT: 'Solo se permiten archivos PNG, JPG o PDF',
     INVALID_PAYPAL: 'La cuenta de PayPal no es válida',
+    DOCUMENT_UPLOADED: 'Documento subido correctamente',
+    APPLICATION_SUBMITTED: 'Solicitud enviada correctamente',
+    APPLICATION_RESUBMITTED: 'Solicitud reenviada correctamente',
   },
 
   // ============ ROUTES (RN-011, RN-012) ============ (No usados aún)
@@ -146,10 +158,20 @@ export const ErrorMessages = {
     INVALID_RATING: 'La calificación debe ser entre 1 y 5 estrellas',
   },
 
-  // ============ ADMIN ============ (No usado aún)
+  // ============ ADMIN ============
   ADMIN: {
     DRIVER_APPROVED: 'Solicitud de conductor aprobada',
     DRIVER_REJECTED: 'Solicitud de conductor rechazada',
+    DRIVER_SUSPENDED: 'Conductor suspendido correctamente',
+    DRIVER_REQUEST_NOT_FOUND: 'Solicitud de conductor no encontrada',
+    ONLY_PENDING_CAN_APPROVE: 'Solo se pueden aprobar solicitudes pendientes',
+    ONLY_PENDING_CAN_REJECT: 'Solo se pueden rechazar solicitudes pendientes',
+    ONLY_APPROVED_CAN_SUSPEND: 'Solo se pueden suspender conductores aprobados',
+    ALL_DOCUMENTS_REQUIRED:
+      'Todos los documentos deben estar aprobados antes de aprobar al conductor',
+    DOCUMENT_NOT_FOUND: 'Documento no encontrado',
+    DOCUMENT_APPROVED: 'Documento aprobado correctamente',
+    DOCUMENT_REJECTED: 'Documento rechazado',
     REJECTION_REASON_REQUIRED: 'Debes indicar el motivo del rechazo',
     ROLE_UPDATED: 'Rol de usuario actualizado',
     ACTION_LOGGED: 'Acción registrada en auditoría',

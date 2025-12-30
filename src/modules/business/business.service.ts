@@ -170,7 +170,11 @@ export class BusinessService {
       relations: ['profile'],
     });
 
-    if (!user || !user.profile) {
+    if (!user) {
+      throw new NotFoundException(ErrorMessages.USER.NOT_FOUND);
+    }
+
+    if (!user.profile) {
       throw new NotFoundException(ErrorMessages.USER.PROFILE_NOT_FOUND);
     }
 
