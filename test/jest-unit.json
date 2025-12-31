@@ -16,6 +16,7 @@
   },
   "collectCoverageFrom": [
     "<rootDir>/src/**/*.(t|j)s",
+    "!<rootDir>/src/**/*.spec.ts",
     "!<rootDir>/src/**/*.controller.ts",
     "!<rootDir>/src/**/Dto/**",
     "!<rootDir>/src/**/Enums/**",

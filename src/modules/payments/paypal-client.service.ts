@@ -71,7 +71,7 @@ export class PaypalClientService {
       headers: {
         Authorization: `Bearer ${accessToken}`,
         'Content-Type': 'application/json',
-        ...(headers || {}),
+        ...headers,
       },
       body: body ? JSON.stringify(body) : undefined,
     });

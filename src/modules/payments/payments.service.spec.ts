@@ -8,7 +8,7 @@ import { PaymentsService } from './payments.service';
 import { Booking } from '../bookings/Models/booking.entity';
 import { Payment } from './Models/payment.entity';
 import { EstadoReservaEnum } from '../bookings/Enums';
-import { MetodoPagoEnum } from './Enums';
+import { EstadoPagoEnum, MetodoPagoEnum } from './Enums';
 import { ErrorMessages } from '../common/constants/error-messages.constant';
 import * as publicIdUtil from '../common/utils/public-id.util';
 
@@ -195,5 +195,81 @@ describe('PaymentsService', () => {
     });
 
     publicIdSpy.mockRestore();
+  });
+
+  it('throws when paypal payment is not found', async () => {
+    paymentRepo.findOne.mockResolvedValue(null);
+
+    await expect(
+      service.createPaypalOrder('passenger-id', 'PAY_123'),
+    ).rejects.toThrow(NotFoundException);
+  });
+
+  it('creates a paypal order for a valid payment', async () => {
+    const payment = {
+      id: 'payment-id',
+      booking: { passengerId: 'passenger-id' },
+      method: MetodoPagoEnum.PAYPAL,
+      status: EstadoPagoEnum.PENDING,
+      currency: 'USD',
+      amount: 2.5,
+    } as Payment;
+
+    paymentRepo.findOne.mockResolvedValue(payment);
+    paymentRepo.save.mockResolvedValue(payment);
+    configService.get.mockImplementation((key: string) => {
+      if (key === 'FRONTEND_URL') return 'http://frontend';
+      return undefined;
+    });
+    paypalClient.request.mockResolvedValue({
+      id: 'ORDER_123',
+      links: [{ rel: 'approve', href: 'http://approval' }],
+    });
+
+    const response = await service.createPaypalOrder(
+      'passenger-id',
+      'PAY_123',
+    );
+
+    expect(response).toEqual({
+      message: ErrorMessages.PAYMENTS.PAYPAL_ORDER_CREATED,
+      approvalUrl: 'http://approval',
+      paypalOrderId: 'ORDER_123',
+    });
+    expect(payment.paypalOrderId).toBe('ORDER_123');
+  });
+
+  it('captures a paypal order and updates payment', async () => {
+    const payment = {
+      id: 'payment-id',
+      booking: { passengerId: 'passenger-id' },
+      method: MetodoPagoEnum.PAYPAL,
+      status: EstadoPagoEnum.PENDING,
+      paypalOrderId: 'ORDER_123',
+    } as Payment;
+
+    paymentRepo.findOne.mockResolvedValue(payment);
+    paymentRepo.save.mockResolvedValue(payment);
+    paypalClient.request.mockResolvedValue({
+      status: 'COMPLETED',
+      purchase_units: [
+        {
+          payments: {
+            captures: [{ id: 'CAPTURE_1' }],
+          },
+        },
+      ],
+    });
+
+    const response = await service.capturePaypalOrder(
+      'passenger-id',
+      'PAY_123',
+      'ORDER_123',
+    );
+
+    expect(response).toEqual({
+      message: ErrorMessages.PAYMENTS.PAYPAL_CAPTURED,
+    });
+    expect(payment.status).toBe(EstadoPagoEnum.PAID);
   });
 });
