@@ -7,6 +7,7 @@ import {
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
+import { randomInt } from 'crypto';
 import { Booking } from './Models/booking.entity';
 import { CreateBookingDto } from './Dto';
 import { EstadoReservaEnum } from './Enums';
@@ -46,11 +47,12 @@ export class BookingsService {
   ) {}
 
   /**
-   * Genera un OTP de 6 digitos
+   * Genera un OTP de 6 digitos usando criptografía segura
    */
   private generateOtp(): string {
-    return Math.floor(100000 + Math.random() * 900000).toString();
-  }
+    // randomInt es criptográficamente seguro (usa crypto.randomBytes internamente)
+    return randomInt(100000, 1000000).toString();
+  } 
 
   private toRad(deg: number): number {
     return deg * (Math.PI / 180);
@@ -204,7 +206,9 @@ export class BookingsService {
       }
 
       if (Number(route.precioPasajero) <= 0) {
-        throw new BadRequestException(ErrorMessages.ROUTES.ROUTE_PRICE_REQUIRED);
+        throw new BadRequestException(
+          ErrorMessages.ROUTES.ROUTE_PRICE_REQUIRED,
+        );
       }
 
       routeInternalId = route.id;
@@ -355,7 +359,9 @@ export class BookingsService {
       .orderBy('booking.createdAt', 'DESC');
 
     if (estado) {
-      if (!Object.values(EstadoReservaEnum).includes(estado as EstadoReservaEnum)) {
+      if (
+        !Object.values(EstadoReservaEnum).includes(estado as EstadoReservaEnum)
+      ) {
         throw new BadRequestException(
           ErrorMessages.VALIDATION.INVALID_FORMAT('estado'),
         );
@@ -647,9 +653,7 @@ export class BookingsService {
     if (departure) {
       const diffMs = Date.now() - departure.getTime();
       if (diffMs < 30 * 60 * 1000) {
-        throw new BadRequestException(
-          ErrorMessages.BOOKINGS.NO_SHOW_TOO_EARLY,
-        );
+        throw new BadRequestException(ErrorMessages.BOOKINGS.NO_SHOW_TOO_EARLY);
       }
     }
 

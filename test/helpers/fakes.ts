@@ -66,12 +66,37 @@ export class InMemoryRedisService {
     await this.set(resendKey, resendCount + 1, 60 * 60);
   }
 
-  async isTokenRevoked(): Promise<boolean> {
-    return false;
+  clear(): void {
+    this.store.clear();
   }
 
-  async isUserSessionRevoked(): Promise<boolean> {
-    return false;
+  async isTokenRevoked(jti: string): Promise<boolean> {
+    const uuidRegex =
+      /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+    if (!uuidRegex.test(jti)) {
+      return true;
+    }
+
+    return this.read(`revoke:jti:${jti}`) !== null;
+  }
+
+  async isUserSessionRevoked(
+    userId: string,
+    tokenIssuedAt: number,
+  ): Promise<boolean> {
+    const uuidRegex =
+      /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+    if (!uuidRegex.test(userId)) {
+      return true;
+    }
+
+    const revokedAt = this.read(`revoke:user:${userId}`);
+    if (!revokedAt) {
+      return false;
+    }
+
+    const revokedTimestamp = Number.parseInt(revokedAt, 10);
+    return tokenIssuedAt < revokedTimestamp;
   }
 }
 
@@ -98,5 +123,30 @@ export class NoopMailService {
 
   async sendDriverRejectedNotification(): Promise<void> {
     return;
+  }
+}
+
+export class FakeStorageService {
+  async upload(params: {
+    bucket: string;
+    folder: string;
+    filename: string;
+    buffer: Buffer;
+    mimetype: string;
+  }): Promise<string> {
+    const bucket = params.bucket || 'bucket';
+    const folder = params.folder || 'folder';
+    const filename = params.filename || 'file';
+    return `${bucket}/${folder}/${filename}`;
+  }
+
+  async getSignedUrl(
+    bucket: string,
+    objectPath: string,
+    _expiresInSeconds?: number,
+  ): Promise<string> {
+    const safeBucket = bucket || 'bucket';
+    const safePath = objectPath || '';
+    return `https://storage.test/${safeBucket}/${safePath}`;
   }
 }

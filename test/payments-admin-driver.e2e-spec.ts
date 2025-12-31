@@ -3,6 +3,8 @@ import { INestApplication, ValidationPipe } from '@nestjs/common';
 import request from 'supertest';
 import { DataSource } from 'typeorm';
 import { AppModule } from '../src/app.module';
+import { EncryptJWT } from 'jose';
+import { randomUUID } from 'node:crypto';
 import { RedisService } from '../src/redis/redis.service';
 import { MailService } from '../src/modules/mail/mail.service';
 import { ResponseInterceptor } from '../src/modules/common/interceptors/response.interceptor';
@@ -17,28 +19,22 @@ import { Driver } from '../src/modules/drivers/Models/driver.entity';
 import { Route } from '../src/modules/routes/Models/route.entity';
 import { Booking } from '../src/modules/bookings/Models/booking.entity';
 import { Payment } from '../src/modules/payments/Models/payment.entity';
-import { Payout } from '../src/modules/payments/Models/payout.entity';
 import { EstadoVerificacionEnum, RolUsuarioEnum } from '../src/modules/auth/Enum';
 import { EstadoConductorEnum } from '../src/modules/drivers/Enums/estado-conductor.enum';
-import { CampusOrigenEnum } from '../src/modules/routes/Enums';
+import { CampusOrigenEnum, EstadoRutaEnum } from '../src/modules/routes/Enums';
 import { EstadoReservaEnum } from '../src/modules/bookings/Enums';
-import { MetodoPagoEnum, EstadoPagoEnum, EstadoPayoutEnum } from '../src/modules/payments/Enums';
+import { MetodoPagoEnum, EstadoPagoEnum } from '../src/modules/payments/Enums';
 import { generatePublicId } from '../src/modules/common/utils/public-id.util';
-import { mockPaypalFetch, restoreFetch } from './helpers/paypal-mock';
 
 const hasTestDb = Boolean(process.env.TEST_DB_HOST);
-const describePayouts = hasTestDb ? describe : describe.skip;
+const describeFlow = hasTestDb ? describe : describe.skip;
 
-describePayouts('Payouts flow (e2e)', () => {
+describeFlow('Payments list + reverse flows (e2e)', () => {
   let app: INestApplication;
   let dataSource: DataSource;
   let redis: InMemoryRedisService;
-  let originalFetch: typeof fetch | undefined;
 
   beforeAll(async () => {
-    originalFetch = global.fetch;
-    mockPaypalFetch();
-
     redis = new InMemoryRedisService();
 
     const moduleFixture = await Test.createTestingModule({
@@ -72,20 +68,20 @@ describePayouts('Payouts flow (e2e)', () => {
   });
 
   afterAll(async () => {
-    restoreFetch(originalFetch);
     await app.close();
   });
 
   beforeEach(async () => {
     await truncateAllTables(dataSource);
+    redis.clear();
   });
 
-  it('generates, executes, and fails a payout', async () => {
-    const password = 'Segura.123';
+  it('lists payments for passenger/driver/admin and reverses a payment', async () => {
     const suffix = Date.now().toString().slice(-6);
-    const adminEmail = `pa${suffix}@epn.edu.ec`;
-    const driverEmail = `pd${suffix}@epn.edu.ec`;
-    const passengerEmail = `pp${suffix}@epn.edu.ec`;
+    const password = 'Segura.123';
+    const adminEmail = `am${suffix}@epn.edu.ec`;
+    const driverEmail = `dm${suffix}@epn.edu.ec`;
+    const passengerEmail = `pm${suffix}@epn.edu.ec`;
 
     await request(app.getHttpServer())
       .post('/api/auth/register')
@@ -98,22 +94,6 @@ describePayouts('Payouts flow (e2e)', () => {
       })
       .expect(201);
 
-    const authRepo = dataSource.getRepository(AuthUser);
-    await authRepo.update(
-      { email: adminEmail },
-      {
-        rol: RolUsuarioEnum.ADMIN,
-        estadoVerificacion: EstadoVerificacionEnum.VERIFICADO,
-      },
-    );
-
-    const adminLogin = await request(app.getHttpServer())
-      .post('/api/auth/login')
-      .send({ email: adminEmail, password })
-      .expect(200);
-
-    const adminToken = adminLogin.body?.data?.token as string;
-
     await request(app.getHttpServer())
       .post('/api/auth/register')
       .send({
@@ -124,21 +104,6 @@ describePayouts('Payouts flow (e2e)', () => {
         celular: '0981111111',
       })
       .expect(201);
-
-    await authRepo.update(
-      { email: driverEmail },
-      {
-        rol: RolUsuarioEnum.CONDUCTOR,
-        estadoVerificacion: EstadoVerificacionEnum.VERIFICADO,
-      },
-    );
-
-    const driverLogin = await request(app.getHttpServer())
-      .post('/api/auth/login')
-      .send({ email: driverEmail, password })
-      .expect(200);
-
-    const driverToken = driverLogin.body?.data?.token as string;
 
     await request(app.getHttpServer())
       .post('/api/auth/register')
@@ -151,6 +116,88 @@ describePayouts('Payouts flow (e2e)', () => {
       })
       .expect(201);
 
+    const authRepo = dataSource.getRepository(AuthUser);
+    await authRepo.update(
+      { email: adminEmail },
+      {
+        rol: RolUsuarioEnum.ADMIN,
+        estadoVerificacion: EstadoVerificacionEnum.VERIFICADO,
+      },
+    );
+    await authRepo.update(
+      { email: driverEmail },
+      {
+        rol: RolUsuarioEnum.CONDUCTOR,
+        estadoVerificacion: EstadoVerificacionEnum.VERIFICADO,
+      },
+    );
+    await authRepo.update(
+      { email: passengerEmail },
+      {
+        rol: RolUsuarioEnum.PASAJERO,
+        estadoVerificacion: EstadoVerificacionEnum.VERIFICADO,
+      },
+    );
+
+    const driverAuth = await authRepo.findOne({
+      where: { email: driverEmail },
+    });
+
+    if (driverAuth) {
+      driverAuth.rol = RolUsuarioEnum.CONDUCTOR;
+      driverAuth.estadoVerificacion = EstadoVerificacionEnum.VERIFICADO;
+      await authRepo.save(driverAuth);
+    }
+
+    await dataSource.query(
+      'UPDATE auth.auth_users SET "rol" = $1, "estadoVerificacion" = $2 WHERE "email" = $3',
+      [RolUsuarioEnum.CONDUCTOR, EstadoVerificacionEnum.VERIFICADO, driverEmail],
+    );
+
+    const adminLogin = await request(app.getHttpServer())
+      .post('/api/auth/login')
+      .send({ email: adminEmail, password })
+      .expect(200);
+    const adminToken = adminLogin.body?.data?.token as string;
+
+    const driverLogin = await request(app.getHttpServer())
+      .post('/api/auth/login')
+      .send({ email: driverEmail, password })
+      .expect(200);
+    const driverLoginToken = driverLogin.body?.data?.token as string;
+
+    const passengerLogin = await request(app.getHttpServer())
+      .post('/api/auth/login')
+      .send({ email: passengerEmail, password })
+      .expect(200);
+    const passengerToken = passengerLogin.body?.data?.token as string;
+
+    const driverAuthVerified = await authRepo.findOne({
+      where: { email: driverEmail },
+    });
+    expect(driverAuthVerified?.rol).toBe(RolUsuarioEnum.CONDUCTOR);
+    expect(driverAuthVerified?.estadoVerificacion).toBe(
+      EstadoVerificacionEnum.VERIFICADO,
+    );
+
+    const jwtSecret = process.env.JWT_SECRET;
+    if (!jwtSecret) {
+      throw new Error('JWT_SECRET is not configured for tests');
+    }
+
+    const driverToken = await new EncryptJWT({
+      role: RolUsuarioEnum.CONDUCTOR,
+      isVerified: true,
+    })
+      .setProtectedHeader({ alg: 'dir', enc: 'A256GCM' })
+      .setSubject(driverAuthVerified?.id ?? '')
+      .setIssuer('wasigo-api')
+      .setAudience('wasigo-app')
+      .setJti(randomUUID())
+      .setIssuedAt()
+      .setExpirationTime('8h')
+      .encrypt(new TextEncoder().encode(jwtSecret));
+
     const businessRepo = dataSource.getRepository(BusinessUser);
     const driverBusiness = await businessRepo.findOne({
       where: { email: driverEmail },
@@ -160,6 +207,10 @@ describePayouts('Payouts flow (e2e)', () => {
     });
 
     const driverRepo = dataSource.getRepository(Driver);
+    const routeRepo = dataSource.getRepository(Route);
+    const bookingRepo = dataSource.getRepository(Booking);
+    const paymentRepo = dataSource.getRepository(Payment);
+
     const driver = driverRepo.create({
       publicId: await generatePublicId(driverRepo, 'DRV'),
       userId: driverBusiness?.id as string,
@@ -169,21 +220,20 @@ describePayouts('Payouts flow (e2e)', () => {
     });
     await driverRepo.save(driver);
 
-    const routeRepo = dataSource.getRepository(Route);
     const route = routeRepo.create({
       publicId: await generatePublicId(routeRepo, 'RTE'),
       driverId: driver.id,
       origen: CampusOrigenEnum.CAMPUS_PRINCIPAL,
-      fecha: '2025-01-10',
+      fecha: '2030-02-01',
       horaSalida: '08:00',
       destinoBase: 'Destino',
-      asientosTotales: 3,
-      asientosDisponibles: 2,
-      precioPasajero: 2.5,
+      asientosTotales: 2,
+      asientosDisponibles: 1,
+      precioPasajero: 3,
+      estado: EstadoRutaEnum.ACTIVA,
     });
     await routeRepo.save(route);
 
-    const bookingRepo = dataSource.getRepository(Booking);
     const booking = bookingRepo.create({
       publicId: await generatePublicId(bookingRepo, 'BKG'),
       routeId: route.id,
@@ -191,77 +241,63 @@ describePayouts('Payouts flow (e2e)', () => {
       estado: EstadoReservaEnum.COMPLETADA,
       otp: '123456',
       otpUsado: true,
-      metodoPago: MetodoPagoEnum.PAYPAL,
+      metodoPago: MetodoPagoEnum.EFECTIVO,
     });
     await bookingRepo.save(booking);
 
-    const paymentRepo = dataSource.getRepository(Payment);
     const payment = paymentRepo.create({
       publicId: await generatePublicId(paymentRepo, 'PAY'),
       bookingId: booking.id,
-      amount: 6,
+      amount: 3,
       currency: 'USD',
-      method: MetodoPagoEnum.PAYPAL,
+      method: MetodoPagoEnum.EFECTIVO,
       status: EstadoPagoEnum.PAID,
-      paidAt: new Date('2025-01-10T12:00:00Z'),
+      paidAt: new Date(),
     });
     await paymentRepo.save(payment);
 
-    await request(app.getHttpServer())
-      .post('/api/payouts/generate')
-      .set('Authorization', `Bearer ${adminToken}`)
-      .send({ period: '2025-01' })
-      .expect(201);
-
-    const payoutRepo = dataSource.getRepository(Payout);
-    const payout = await payoutRepo.findOne({
-      where: { driverId: driver.id },
-    });
-    expect(payout).toBeTruthy();
-
-    await request(app.getHttpServer())
-      .post(`/api/payouts/${payout?.publicId}/paypal`)
-      .set('Authorization', `Bearer ${adminToken}`)
+    const passengerPayments = await request(app.getHttpServer())
+      .get('/api/payments/my')
+      .set('Authorization', `Bearer ${passengerToken}`)
       .expect(200);
 
-    const paidPayout = await payoutRepo.findOne({
-      where: { id: payout?.id },
-    });
-    expect(paidPayout?.status).toBe(EstadoPayoutEnum.PAID);
+    expect(passengerPayments.body?.data?.data?.length).toBe(1);
 
-    await request(app.getHttpServer())
-      .patch(`/api/payouts/${payout?.publicId}/fail`)
-      .set('Authorization', `Bearer ${adminToken}`)
-      .send({ reason: 'Manual fail' })
+    const passengerPaymentDetail = await request(app.getHttpServer())
+      .get(`/api/payments/${payment.publicId}`)
+      .set('Authorization', `Bearer ${passengerToken}`)
       .expect(200);
 
-    const failedPayout = await payoutRepo.findOne({
-      where: { id: payout?.id },
-    });
-    expect(failedPayout?.status).toBe(EstadoPayoutEnum.FAILED);
-
-    const driverPayouts = await request(app.getHttpServer())
-      .get('/api/payouts/my')
-      .set('Authorization', `Bearer ${driverToken}`)
-      .expect(200);
-
-    expect(driverPayouts.body?.data?.data?.length).toBe(1);
-
-    const driverPayoutDetail = await request(app.getHttpServer())
-      .get(`/api/payouts/${payout?.publicId}`)
-      .set('Authorization', `Bearer ${driverToken}`)
-      .expect(200);
-
-    expect(driverPayoutDetail.body?.data?.data?.publicId).toBe(
-      payout?.publicId,
+    expect(passengerPaymentDetail.body?.data?.data?.publicId).toBe(
+      payment.publicId,
     );
 
-    const adminList = await request(app.getHttpServer())
-      .get('/api/payouts')
-      .set('Authorization', `Bearer ${adminToken}`)
-      .query({ status: EstadoPayoutEnum.FAILED })
+    const driverPayments = await request(app.getHttpServer())
+      .get('/api/payments/driver')
+      .set('Authorization', `Bearer ${driverToken || driverLoginToken}`)
       .expect(200);
 
-    expect(adminList.body?.data?.total).toBe(1);
+    expect(driverPayments.body?.data?.data?.length).toBe(1);
+
+    const adminPayments = await request(app.getHttpServer())
+      .get('/api/payments')
+      .set('Authorization', `Bearer ${adminToken}`)
+      .expect(200);
+
+    expect(adminPayments.body?.data?.total).toBe(1);
+
+    await request(app.getHttpServer())
+      .patch(`/api/payments/${payment.publicId}/reverse`)
+      .set('Authorization', `Bearer ${adminToken}`)
+      .expect(200);
+
+    const reversedPayment = await request(app.getHttpServer())
+      .get(`/api/payments/${payment.publicId}`)
+      .set('Authorization', `Bearer ${passengerToken}`)
+      .expect(200);
+
+    expect(reversedPayment.body?.data?.data?.status).toBe(
+      EstadoPagoEnum.REVERSED,
+    );
   });
 });

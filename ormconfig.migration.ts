@@ -57,7 +57,7 @@ if (missing.length) {
 }
 
 const port = Number(DB_PORT);
-if (isNaN(port) || port < 1 || port > 65535) {
+if (Number.isNaN(port) || port < 1 || port > 65535) {
   console.error('[migration] DB_PORT invalido');
   process.exit(1);
 }

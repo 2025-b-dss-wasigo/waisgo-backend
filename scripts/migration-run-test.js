@@ -14,18 +14,14 @@ if (!fs.existsSync(envFile)) {
 process.env.NODE_ENV = 'test';
 
 try {
-  execSync(
-    'npm run typeorm -- -d ormconfig.migration.ts migration:run',
-    {
-      stdio: 'inherit',
-      env: process.env,
-      shell: true,
-    },
-  );
+  execSync('npm run typeorm -- -d ormconfig.migration.ts migration:run', {
+    stdio: 'inherit',
+    env: process.env,
+    shell: true,
+  });
   process.exit(0);
 } catch (error) {
-  const message =
-    error instanceof Error ? error.message : 'Migration failed';
+  const message = error instanceof Error ? error.message : 'Migration failed';
   console.error(`[migration:test] ${message}`);
   process.exit(1);
 }

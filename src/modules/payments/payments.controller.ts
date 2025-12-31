@@ -120,6 +120,23 @@ export class PaymentsController {
     return this.paymentsService.getMyPayments(user.sub, status);
   }
 
+  /* ========== CONDUCTOR ========== */
+
+  /**
+   * Obtener pagos recibidos (para el conductor)
+   */
+  @Roles(RolUsuarioEnum.CONDUCTOR)
+  @Get('driver')
+  @ApiOperation({ summary: 'Obtener pagos recibidos como conductor' })
+  @ApiQuery({ name: 'status', required: false })
+  @ApiResponse({ status: 200, description: 'Pagos recibidos.' })
+  async getDriverPayments(
+    @User() user: JwtPayload,
+    @Query('status') status?: string,
+  ) {
+    return this.paymentsService.getDriverPayments(user.sub, status);
+  }
+
   /**
    * Obtener detalle de un pago
    */
@@ -204,23 +221,6 @@ export class PaymentsController {
       this.getAuthContext(req),
       this.getIdempotencyKey(req),
     );
-  }
-
-  /* ========== CONDUCTOR ========== */
-
-  /**
-   * Obtener pagos recibidos (para el conductor)
-   */
-  @Roles(RolUsuarioEnum.CONDUCTOR)
-  @Get('driver')
-  @ApiOperation({ summary: 'Obtener pagos recibidos como conductor' })
-  @ApiQuery({ name: 'status', required: false })
-  @ApiResponse({ status: 200, description: 'Pagos recibidos.' })
-  async getDriverPayments(
-    @User() user: JwtPayload,
-    @Query('status') status?: string,
-  ) {
-    return this.paymentsService.getDriverPayments(user.sub, status);
   }
 
   /* ========== ADMIN ========== */
