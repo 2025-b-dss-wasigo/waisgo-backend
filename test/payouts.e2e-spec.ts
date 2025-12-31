@@ -82,9 +82,10 @@ describePayouts('Payouts flow (e2e)', () => {
 
   it('generates, executes, and fails a payout', async () => {
     const password = 'Segura.123';
-    const adminEmail = `payout-admin${Date.now()}@epn.edu.ec`;
-    const driverEmail = `payout-driver${Date.now()}@epn.edu.ec`;
-    const passengerEmail = `payout-passenger${Date.now()}@epn.edu.ec`;
+    const suffix = Date.now().toString().slice(-6);
+    const adminEmail = `pa${suffix}@epn.edu.ec`;
+    const driverEmail = `pd${suffix}@epn.edu.ec`;
+    const passengerEmail = `pp${suffix}@epn.edu.ec`;
 
     await request(app.getHttpServer())
       .post('/api/auth/register')

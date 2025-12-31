@@ -60,7 +60,7 @@ export const configureTestEnv = (
   setDefault('DB_PORT', '5432');
   setDefault('DB_USERNAME', 'postgres');
   setDefault('DB_PASSWORD', 'postgres');
-  setDefault('DB_NAME', 'waisgo_test');
+  setDefault('DB_NAME', 'wasigo_test');
   setDefault('DB_SSL', 'false');
   setDefault('DB_MIGRATION_USERNAME', 'postgres');
   setDefault('DB_MIGRATION_PASSWORD', 'postgres');

@@ -75,8 +75,9 @@ describeFlow('Routes + Bookings + OTP + Ratings (e2e)', () => {
 
   it('creates route, books, verifies OTP, completes, and rates', async () => {
     const password = 'Segura.123';
-    const passengerEmail = `passenger${Date.now()}@epn.edu.ec`;
-    const driverEmail = `driver${Date.now()}@epn.edu.ec`;
+    const suffix = Date.now().toString().slice(-6);
+    const passengerEmail = `ps${suffix}@epn.edu.ec`;
+    const driverEmail = `dr${suffix}@epn.edu.ec`;
 
     await request(app.getHttpServer())
       .post('/api/auth/register')

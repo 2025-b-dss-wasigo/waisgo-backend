@@ -36,9 +36,14 @@ describe('public-id utils', () => {
     expect(isValidIdentifier(publicId)).toBe(true);
   });
 
-  it('builds a lookup for id and publicId', () => {
+  it('builds a lookup for publicId only when identifier is publicId', () => {
     const result = buildIdWhere<{ id: string; publicId: string }>(publicId);
-    expect(result).toEqual([{ id: publicId }, { publicId }]);
+    expect(result).toEqual([{ publicId }]);
+  });
+
+  it('builds a lookup for id and publicId when identifier is uuid', () => {
+    const result = buildIdWhere<{ id: string; publicId: string }>(uuid);
+    expect(result).toEqual([{ id: uuid }, { publicId: uuid }]);
   });
 
   it('generates publicId with prefix', async () => {

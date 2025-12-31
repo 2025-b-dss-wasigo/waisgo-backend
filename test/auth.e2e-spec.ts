@@ -64,7 +64,8 @@ describeAuth('Auth flow (e2e)', () => {
   });
 
   it('registers, logs in, and verifies a user', async () => {
-    const email = `test${Date.now()}@epn.edu.ec`;
+    const suffix = Date.now().toString().slice(-6);
+    const email = `t${suffix}@epn.edu.ec`;
     const password = 'Segura.123';
 
     await request(app.getHttpServer())

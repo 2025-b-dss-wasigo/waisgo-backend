@@ -74,7 +74,8 @@ describePayments('Payments idempotency (e2e)', () => {
   });
 
   it('returns the same payment for repeated idempotent requests', async () => {
-    const email = `pay${Date.now()}@epn.edu.ec`;
+    const suffix = Date.now().toString().slice(-6);
+    const email = `py${suffix}@epn.edu.ec`;
     const password = 'Segura.123';
 
     await request(app.getHttpServer())
@@ -136,8 +137,8 @@ describePayments('Payments idempotency (e2e)', () => {
     const driverBusiness = businessRepo.create({
       id: driverUserId,
       publicId: await generatePublicId(businessRepo, 'USR'),
-      email: `driver${Date.now()}@epn.edu.ec`,
-      alias: `driver${Date.now()}`.slice(0, 20),
+      email: `dr${suffix}@epn.edu.ec`,
+      alias: `driver${suffix}`.slice(0, 20),
     });
     await businessRepo.save(driverBusiness);
 

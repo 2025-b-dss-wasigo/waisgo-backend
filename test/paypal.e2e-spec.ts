@@ -82,9 +82,10 @@ describePaypal('PayPal flow (e2e)', () => {
 
   it('creates PayPal order, captures, and refunds', async () => {
     const password = 'Segura.123';
-    const passengerEmail = `paypal-passenger${Date.now()}@epn.edu.ec`;
-    const driverEmail = `paypal-driver${Date.now()}@epn.edu.ec`;
-    const adminEmail = `paypal-admin${Date.now()}@epn.edu.ec`;
+    const suffix = Date.now().toString().slice(-6);
+    const passengerEmail = `pp${suffix}@epn.edu.ec`;
+    const driverEmail = `pd${suffix}@epn.edu.ec`;
+    const adminEmail = `pa${suffix}@epn.edu.ec`;
 
     await request(app.getHttpServer())
       .post('/api/auth/register')

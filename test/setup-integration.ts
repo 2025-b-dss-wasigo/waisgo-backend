@@ -1,3 +1,3 @@
 import { configureTestEnv } from './helpers/test-env';
 
-configureTestEnv();
+configureTestEnv({ requireTestDb: true });

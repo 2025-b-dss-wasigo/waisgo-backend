@@ -6,7 +6,7 @@ import {
   Logger,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository, In } from 'typeorm';
+import { Repository, In, FindOptionsWhere } from 'typeorm';
 
 import { Rating } from './Models/rating.entity';
 import { CreateRatingDto } from './Dto';
@@ -21,7 +21,12 @@ import { AuditService } from '../audit/audit.service';
 import { AuditAction, AuditResult } from '../audit/Enums';
 import { ErrorMessages } from '../common/constants/error-messages.constant';
 import type { AuthContext } from '../common/types';
-import { buildIdWhere, generatePublicId } from '../common/utils/public-id.util';
+import {
+  buildIdWhere,
+  generatePublicId,
+  isUuid,
+  isValidIdentifier,
+} from '../common/utils/public-id.util';
 
 @Injectable()
 export class RatingsService {
@@ -117,12 +122,22 @@ export class RatingsService {
 
     const driverUserId = driver?.userId;
 
+    const identifier = dto.toUserId.trim();
+    const toUserWhere: FindOptionsWhere<BusinessUser>[] = [];
+    if (isValidIdentifier(identifier)) {
+      toUserWhere.push(...buildIdWhere<BusinessUser>(identifier));
+    } else if (!isUuid(identifier)) {
+      toUserWhere.push({ alias: identifier });
+    }
+
+    if (toUserWhere.length === 0) {
+      throw new BadRequestException(
+        ErrorMessages.VALIDATION.INVALID_FORMAT('toUserId'),
+      );
+    }
+
     const toUser = await this.businessUserRepository.findOne({
-      where: [
-        { id: dto.toUserId },
-        { publicId: dto.toUserId },
-        { alias: dto.toUserId },
-      ],
+      where: toUserWhere,
     });
 
     if (!toUser) {

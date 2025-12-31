@@ -11,7 +11,7 @@ export const truncateAllTables = async (
       FOR r IN (
         SELECT schemaname, tablename
         FROM pg_tables
-        WHERE schemaname IN ('auth', 'business', 'audit')
+        WHERE schemaname IN ('auth', 'business')
       ) LOOP
         EXECUTE format(
           'TRUNCATE TABLE %I.%I RESTART IDENTITY CASCADE;',

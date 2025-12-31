@@ -39,10 +39,14 @@ export const isValidIdentifier = (value: string): boolean =>
 
 export const buildIdWhere = <T extends { id: string; publicId: string }>(
   identifier: string,
-): FindOptionsWhere<T>[] => [
-  { id: identifier } as FindOptionsWhere<T>,
-  { publicId: identifier } as FindOptionsWhere<T>,
-];
+): FindOptionsWhere<T>[] => {
+  const where: FindOptionsWhere<T>[] = [];
+  if (allowUuidIdentifiers() && isUuid(identifier)) {
+    where.push({ id: identifier } as FindOptionsWhere<T>);
+  }
+  where.push({ publicId: identifier } as FindOptionsWhere<T>);
+  return where;
+};
 
 export const generatePublicId = async <T extends { publicId: string }>(
   repo: Repository<T>,

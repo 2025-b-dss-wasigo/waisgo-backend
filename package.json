@@ -13,12 +13,12 @@
     "start:debug": "nest start --debug --watch",
     "start:prod": "node dist/main",
     "lint": "eslint \"{src,apps,libs,test}/**/*.ts\" --fix",
-    "test": "jest",
-    "test:watch": "jest --watch",
-    "test:cov": "jest --coverage",
-    "test:debug": "node --inspect-brk -r tsconfig-paths/register -r ts-node/register node_modules/.bin/jest --runInBand",
-    "test:e2e": "jest --config ./test/jest-e2e.json",
-    "test:integration": "jest --config ./test/jest-integration.json",
+    "test": "jest --config ./test/jest-unit.json",
+    "test:watch": "jest --config ./test/jest-unit.json --watch",
+    "test:cov": "jest --config ./test/jest-unit.json --coverage",
+    "test:debug": "node --inspect-brk -r tsconfig-paths/register -r ts-node/register node_modules/.bin/jest --config ./test/jest-unit.json --runInBand",
+    "test:e2e": "npm run migration:run:test && jest --config ./test/jest-e2e.json --runInBand --verbose",
+    "test:integration": "npm run migration:run:test && jest --config ./test/jest-integration.json --runInBand --verbose",
     "typeorm": "typeorm-ts-node-commonjs",
     "migration:generate": "npm run typeorm -- -d ormconfig.migration.ts migration:generate",
     "migration:create": "npm run typeorm -- -d ormconfig.migration.ts migration:create",
@@ -106,7 +106,6 @@
     "testEnvironment": "node"
   },
   "overrides": {
-    "glob": "^11.0.0",
     "html-minifier": "^5.0.0",
     "mjml-core": "^4.18.1"
   }
