@@ -1,5 +1,4 @@
 import {
-  BadRequestException,
   Controller,
   Get,
   Post,
@@ -26,37 +25,17 @@ import { Roles, User } from '../common/Decorators';
 import { RolUsuarioEnum } from '../auth/Enum';
 import { PaymentsService } from './payments.service';
 import { CreatePaymentDto, CapturePaypalDto } from './Dto';
-import type { JwtPayload, AuthContext } from '../common/types';
-import { ErrorMessages } from '../common/constants/error-messages.constant';
-import { isValidIdentifier } from '../common/utils/public-id.util';
+import type { JwtPayload } from '../common/types';
+import {
+  buildAuthContext,
+  validateIdentifier,
+} from '../common/utils/request-context.util';
 
 @ApiTags('Payments')
 @ApiBearerAuth('access-token')
 @Controller('payments')
 export class PaymentsController {
   constructor(private readonly paymentsService: PaymentsService) {}
-
-  private validateIdentifier(value: string, field = 'id'): string {
-    if (!isValidIdentifier(value)) {
-      throw new BadRequestException(
-        ErrorMessages.VALIDATION.INVALID_FORMAT(field),
-      );
-    }
-    return value;
-  }
-
-  private getAuthContext(req: Request): AuthContext {
-    const forwardedFor = req.headers['x-forwarded-for'];
-    const ip =
-      typeof forwardedFor === 'string'
-        ? forwardedFor.split(',')[0].trim()
-        : req.ip || req.socket?.remoteAddress || 'unknown';
-
-    return {
-      ip,
-      userAgent: req.headers['user-agent'] || 'unknown',
-    };
-  }
 
   private getIdempotencyKey(req: Request): string | null {
     const raw = req.headers['idempotency-key'];
@@ -96,7 +75,7 @@ export class PaymentsController {
     return this.paymentsService.createPayment(
       user.sub,
       dto,
-      this.getAuthContext(req),
+      buildAuthContext(req),
       this.getIdempotencyKey(req),
     );
   }
@@ -150,7 +129,7 @@ export class PaymentsController {
     @User() user: JwtPayload,
     @Param('id') id: string,
   ) {
-    const safeId = this.validateIdentifier(id);
+    const safeId = validateIdentifier(id);
     return this.paymentsService.getPaymentById(user.sub, safeId);
   }
 
@@ -179,11 +158,11 @@ export class PaymentsController {
     @Param('id') id: string,
     @Req() req: Request,
   ) {
-    const safeId = this.validateIdentifier(id);
+    const safeId = validateIdentifier(id);
     return this.paymentsService.createPaypalOrder(
       user.sub,
       safeId,
-      this.getAuthContext(req),
+      buildAuthContext(req),
       this.getIdempotencyKey(req),
     );
   }
@@ -213,12 +192,12 @@ export class PaymentsController {
     @Body() dto: CapturePaypalDto,
     @Req() req: Request,
   ) {
-    const safeId = this.validateIdentifier(id);
+    const safeId = validateIdentifier(id);
     return this.paymentsService.capturePaypalOrder(
       user.sub,
       safeId,
       dto.paypalOrderId,
-      this.getAuthContext(req),
+      buildAuthContext(req),
       this.getIdempotencyKey(req),
     );
   }
@@ -259,11 +238,11 @@ export class PaymentsController {
     @Param('id') id: string,
     @Req() req: Request,
   ) {
-    const safeId = this.validateIdentifier(id);
+    const safeId = validateIdentifier(id);
     return this.paymentsService.reversePayment(
       safeId,
       user.sub,
-      this.getAuthContext(req),
+      buildAuthContext(req),
       this.getIdempotencyKey(req),
     );
   }

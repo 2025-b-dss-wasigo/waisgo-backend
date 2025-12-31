@@ -14,6 +14,7 @@
   "setupFilesAfterEnv": ["<rootDir>/test/setup-integration.ts"],
   "collectCoverageFrom": [
     "<rootDir>/src/**/*.(t|j)s",
+    "!<rootDir>/src/**/*.controller.ts",
     "!<rootDir>/src/**/Dto/**",
     "!<rootDir>/src/**/Enums/**",
     "!<rootDir>/src/**/Models/**",

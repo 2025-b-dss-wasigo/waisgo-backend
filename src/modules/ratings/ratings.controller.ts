@@ -1,5 +1,4 @@
 import {
-  BadRequestException,
   Controller,
   Get,
   Post,
@@ -23,37 +22,17 @@ import { Roles, User } from '../common/Decorators';
 import { RolUsuarioEnum } from '../auth/Enum';
 import { RatingsService } from './ratings.service';
 import { CreateRatingDto } from './Dto';
-import type { JwtPayload, AuthContext } from '../common/types';
-import { ErrorMessages } from '../common/constants/error-messages.constant';
-import { isValidIdentifier } from '../common/utils/public-id.util';
+import type { JwtPayload } from '../common/types';
+import {
+  buildAuthContext,
+  validateIdentifier,
+} from '../common/utils/request-context.util';
 
 @ApiTags('Ratings')
 @ApiBearerAuth('access-token')
 @Controller('ratings')
 export class RatingsController {
   constructor(private readonly ratingsService: RatingsService) {}
-
-  private validateIdentifier(value: string, field = 'id'): string {
-    if (!isValidIdentifier(value)) {
-      throw new BadRequestException(
-        ErrorMessages.VALIDATION.INVALID_FORMAT(field),
-      );
-    }
-    return value;
-  }
-
-  private getAuthContext(req: Request): AuthContext {
-    const forwardedFor = req.headers['x-forwarded-for'];
-    const ip =
-      typeof forwardedFor === 'string'
-        ? forwardedFor.split(',')[0].trim()
-        : req.ip || req.socket?.remoteAddress || 'unknown';
-
-    return {
-      ip,
-      userAgent: req.headers['user-agent'] || 'unknown',
-    };
-  }
 
   /* ========== PASAJERO / CONDUCTOR ========== */
 
@@ -81,7 +60,7 @@ export class RatingsController {
     return this.ratingsService.createRating(
       user.sub,
       dto,
-      this.getAuthContext(req),
+      buildAuthContext(req),
     );
   }
 
@@ -153,7 +132,7 @@ export class RatingsController {
     @User() user: JwtPayload,
     @Param('routeId') routeId: string,
   ) {
-    const safeRouteId = this.validateIdentifier(routeId, 'routeId');
+    const safeRouteId = validateIdentifier(routeId, 'routeId');
     return this.ratingsService.canRateRoute(user.sub, safeRouteId);
   }
 

@@ -1,5 +1,4 @@
 import {
-  BadRequestException,
   Controller,
   Get,
   Post,
@@ -24,37 +23,17 @@ import { Roles, User } from '../common/Decorators';
 import { RolUsuarioEnum } from '../auth/Enum';
 import { BookingsService } from './bookings.service';
 import { CreateBookingDto, VerifyOtpDto } from './Dto';
-import type { JwtPayload, AuthContext } from '../common/types';
-import { ErrorMessages } from '../common/constants/error-messages.constant';
-import { isValidIdentifier } from '../common/utils/public-id.util';
+import type { JwtPayload } from '../common/types';
+import {
+  buildAuthContext,
+  validateIdentifier,
+} from '../common/utils/request-context.util';
 
 @ApiTags('Bookings')
 @ApiBearerAuth('access-token')
 @Controller('bookings')
 export class BookingsController {
   constructor(private readonly bookingsService: BookingsService) {}
-
-  private validateIdentifier(value: string, field = 'id'): string {
-    if (!isValidIdentifier(value)) {
-      throw new BadRequestException(
-        ErrorMessages.VALIDATION.INVALID_FORMAT(field),
-      );
-    }
-    return value;
-  }
-
-  private getAuthContext(req: Request): AuthContext {
-    const forwardedFor = req.headers['x-forwarded-for'];
-    const ip =
-      typeof forwardedFor === 'string'
-        ? forwardedFor.split(',')[0].trim()
-        : req.ip || req.socket?.remoteAddress || 'unknown';
-
-    return {
-      ip,
-      userAgent: req.headers['user-agent'] || 'unknown',
-    };
-  }
 
   /* ================= PASAJERO ================= */
 
@@ -73,7 +52,7 @@ export class BookingsController {
     return this.bookingsService.createBooking(
       user.sub,
       dto,
-      this.getAuthContext(req),
+      buildAuthContext(req),
     );
   }
 
@@ -98,7 +77,7 @@ export class BookingsController {
     @User() user: JwtPayload,
     @Param('id') id: string,
   ) {
-    const safeId = this.validateIdentifier(id);
+    const safeId = validateIdentifier(id);
     return this.bookingsService.getBookingById(user.sub, safeId);
   }
 
@@ -113,11 +92,11 @@ export class BookingsController {
     @Param('id') id: string,
     @Req() req: Request,
   ) {
-    const safeId = this.validateIdentifier(id);
+    const safeId = validateIdentifier(id);
     return this.bookingsService.cancelBooking(
       user.sub,
       safeId,
-      this.getAuthContext(req),
+      buildAuthContext(req),
     );
   }
 
@@ -131,7 +110,7 @@ export class BookingsController {
     @User() user: JwtPayload,
     @Param('id') id: string,
   ) {
-    const safeId = this.validateIdentifier(id);
+    const safeId = validateIdentifier(id);
     return this.bookingsService.getBookingMap(user.sub, safeId);
   }
 
@@ -146,7 +125,7 @@ export class BookingsController {
     @User() user: JwtPayload,
     @Param('routeId') routeId: string,
   ) {
-    const safeRouteId = this.validateIdentifier(routeId, 'routeId');
+    const safeRouteId = validateIdentifier(routeId, 'routeId');
     return this.bookingsService.getBookingsByRoute(user.sub, safeRouteId);
   }
 
@@ -160,11 +139,11 @@ export class BookingsController {
     @Param('id') id: string,
     @Req() req: Request,
   ) {
-    const safeId = this.validateIdentifier(id);
+    const safeId = validateIdentifier(id);
     return this.bookingsService.completeBooking(
       user.sub,
       safeId,
-      this.getAuthContext(req),
+      buildAuthContext(req),
     );
   }
 
@@ -179,11 +158,11 @@ export class BookingsController {
     @Param('id') id: string,
     @Req() req: Request,
   ) {
-    const safeId = this.validateIdentifier(id);
+    const safeId = validateIdentifier(id);
     return this.bookingsService.markNoShow(
       user.sub,
       safeId,
-      this.getAuthContext(req),
+      buildAuthContext(req),
     );
   }
 
@@ -203,12 +182,12 @@ export class BookingsController {
     @Body() dto: VerifyOtpDto,
     @Req() req: Request,
   ) {
-    const safeId = this.validateIdentifier(id);
+    const safeId = validateIdentifier(id);
     return this.bookingsService.verifyOtp(
       user.sub,
       safeId,
       dto.otp,
-      this.getAuthContext(req),
+      buildAuthContext(req),
     );
   }
 }

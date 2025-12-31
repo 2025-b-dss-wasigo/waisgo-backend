@@ -24,7 +24,8 @@ import {
 import { FileInterceptor } from '@nestjs/platform-express';
 
 import { Roles, User } from '../common/Decorators';
-import type { JwtPayload, AuthContext } from '../common/types';
+import type { JwtPayload } from '../common/types';
+import { buildAuthContext } from '../common/utils/request-context.util';
 import { RolUsuarioEnum } from '../auth/Enum';
 import { DriversService } from './drivers.service';
 import { ApplyDriverDto } from './Dto';
@@ -40,19 +41,6 @@ export class DriversController {
 
   private async validateUserId(userId: string): Promise<string> {
     return this.uuidPipe.transform(userId, { type: 'custom' });
-  }
-
-  private getAuthContext(req: Request): AuthContext {
-    const forwardedFor = req.headers['x-forwarded-for'];
-    const ip =
-      typeof forwardedFor === 'string'
-        ? forwardedFor.split(',')[0].trim()
-        : req.ip || req.socket?.remoteAddress || 'unknown';
-
-    return {
-      ip,
-      userAgent: req.headers['user-agent'] || 'unknown',
-    };
   }
 
   @Roles(RolUsuarioEnum.PASAJERO)
@@ -71,7 +59,7 @@ export class DriversController {
     @Req() req: Request,
   ) {
     const safeUserId = await this.validateUserId(user.id);
-    const context = this.getAuthContext(req);
+    const context = buildAuthContext(req);
     return this.driversService.applyAsDriver(
       safeUserId,
       dto.paypalEmail,
@@ -120,7 +108,7 @@ export class DriversController {
     @Req() req: Request,
   ) {
     const safeUserId = await this.validateUserId(user.id);
-    const context = this.getAuthContext(req);
+    const context = buildAuthContext(req);
     return this.driversService.uploadDocument(safeUserId, tipo, file, context);
   }
 }

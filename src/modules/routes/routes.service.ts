@@ -27,6 +27,11 @@ import { AuditAction, AuditResult } from '../audit/Enums';
 import { ErrorMessages } from '../common/constants/error-messages.constant';
 import type { AuthContext } from '../common/types';
 import { buildIdWhere, generatePublicId } from '../common/utils/public-id.util';
+import {
+  haversineDistance,
+  planStopInsertion,
+} from '../common/utils/route-stop.util';
+import { getDepartureDate } from '../common/utils/route-time.util';
 
 @Injectable()
 export class RoutesService {
@@ -50,44 +55,6 @@ export class RoutesService {
     private readonly paymentsService: PaymentsService,
     private readonly auditService: AuditService,
   ) {}
-
-  private toRad(deg: number): number {
-    return deg * (Math.PI / 180);
-  }
-
-  private haversineDistance(
-    lat1: number,
-    lng1: number,
-    lat2: number,
-    lng2: number,
-  ): number {
-    const R = 6371;
-    const dLat = this.toRad(lat2 - lat1);
-    const dLng = this.toRad(lng2 - lng1);
-    const a =
-      Math.sin(dLat / 2) * Math.sin(dLat / 2) +
-      Math.cos(this.toRad(lat1)) *
-        Math.cos(this.toRad(lat2)) *
-        Math.sin(dLng / 2) *
-        Math.sin(dLng / 2);
-    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-    return R * c;
-  }
-
-  private getDepartureDate(route: Route): Date | null {
-    if (!route.fecha || !route.horaSalida) {
-      return null;
-    }
-    const time =
-      route.horaSalida.length === 5
-        ? `${route.horaSalida}:00`
-        : route.horaSalida;
-    const departure = new Date(`${route.fecha}T${time}`);
-    if (Number.isNaN(departure.getTime())) {
-      return null;
-    }
-    return departure;
-  }
 
   private async ensureRouteAccess(
     route: Route,
@@ -148,7 +115,7 @@ export class RoutesService {
       let finalized = 0;
 
       for (const route of routes) {
-        const departure = this.getDepartureDate(route);
+        const departure = getDepartureDate(route);
         if (!departure || departure.getTime() > now.getTime()) {
           continue;
         }
@@ -325,7 +292,7 @@ export class RoutesService {
 
         const minDistance = Math.min(
           ...stops.map((stop) =>
-            this.haversineDistance(
+            haversineDistance(
               dto.lat,
               dto.lng,
               Number(stop.lat),
@@ -422,48 +389,7 @@ export class RoutesService {
     }
 
     const stops = (route.stops || []).sort((a, b) => a.orden - b.orden);
-    let insertIndex = stops.length;
-
-    if (stops.length > 1) {
-      let bestExtraDistance = Number.POSITIVE_INFINITY;
-      for (let i = 0; i < stops.length - 1; i += 1) {
-        const current = stops[i];
-        const next = stops[i + 1];
-        const extra =
-          this.haversineDistance(
-            Number(current.lat),
-            Number(current.lng),
-            dto.lat,
-            dto.lng,
-          ) +
-          this.haversineDistance(
-            dto.lat,
-            dto.lng,
-            Number(next.lat),
-            Number(next.lng),
-          ) -
-          this.haversineDistance(
-            Number(current.lat),
-            Number(current.lng),
-            Number(next.lat),
-            Number(next.lng),
-          );
-
-        if (extra < bestExtraDistance) {
-          bestExtraDistance = extra;
-          insertIndex = i + 1;
-        }
-      }
-    }
-
-    if (stops.length === 1) {
-      insertIndex = 1;
-    }
-
-    const newOrder = insertIndex + 1;
-    const updates = stops
-      .filter((stop) => stop.orden >= newOrder)
-      .map((stop) => ({ ...stop, orden: stop.orden + 1 }));
+    const { newOrder, updates } = planStopInsertion(stops, dto.lat, dto.lng);
 
     if (updates.length > 0) {
       await this.routeStopRepository.save(updates);

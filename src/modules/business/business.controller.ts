@@ -21,7 +21,8 @@ import {
   ApiTags,
   ApiBody,
 } from '@nestjs/swagger';
-import type { JwtPayload, AuthContext } from '../common/types';
+import type { JwtPayload } from '../common/types';
+import { buildAuthContext } from '../common/utils/request-context.util';
 import { UpdateProfileDto } from './Dto';
 import { BusinessService } from './business.service';
 import { FileInterceptor } from '@nestjs/platform-express';
@@ -36,19 +37,6 @@ export class BusinessController {
 
   private async validateUserId(userId: string): Promise<string> {
     return this.uuidPipe.transform(userId, { type: 'custom' });
-  }
-
-  private getAuthContext(req: Request): AuthContext {
-    const forwardedFor = req.headers['x-forwarded-for'];
-    const ip =
-      typeof forwardedFor === 'string'
-        ? forwardedFor.split(',')[0].trim()
-        : req.ip || req.socket?.remoteAddress || 'unknown';
-
-    return {
-      ip,
-      userAgent: req.headers['user-agent'] || 'unknown',
-    };
   }
 
   @Roles(
@@ -108,7 +96,7 @@ export class BusinessController {
     return await this.businessService.updateProfile(
       safeUserId,
       dto,
-      this.getAuthContext(req),
+      buildAuthContext(req),
     );
   }
 
@@ -154,7 +142,7 @@ export class BusinessController {
     return this.businessService.updateProfilePhoto(
       user.id,
       file,
-      this.getAuthContext(req),
+      buildAuthContext(req),
     );
   }
 
@@ -184,7 +172,7 @@ export class BusinessController {
     const safeUserId = await this.validateUserId(user.id);
     return await this.businessService.softDeleteUser(
       safeUserId,
-      this.getAuthContext(req),
+      buildAuthContext(req),
     );
   }
 

@@ -4,16 +4,15 @@ import {
   BadRequestException,
   ForbiddenException,
   ConflictException,
-  Logger,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { ConfigService } from '@nestjs/config';
-import { URLSearchParams } from 'node:url';
 
 import { Payment } from './Models/payment.entity';
 import { CreatePaymentDto } from './Dto';
 import { EstadoPagoEnum, MetodoPagoEnum } from './Enums';
+import { PaypalClientService } from './paypal-client.service';
 import { Booking } from '../bookings/Models/booking.entity';
 import { Driver } from '../drivers/Models/driver.entity';
 import { EstadoReservaEnum } from '../bookings/Enums';
@@ -40,8 +39,6 @@ type PaypalOrderResponse = {
 
 @Injectable()
 export class PaymentsService {
-  private readonly logger = new Logger(PaymentsService.name);
-
   constructor(
     @InjectRepository(Payment)
     private readonly paymentRepository: Repository<Payment>,
@@ -51,75 +48,21 @@ export class PaymentsService {
     private readonly driverRepository: Repository<Driver>,
     private readonly auditService: AuditService,
     private readonly configService: ConfigService,
+    private readonly paypalClient: PaypalClientService,
     private readonly idempotencyService: IdempotencyService,
   ) {}
 
-  private getPayPalCredentials() {
-    const clientId = this.configService.get<string>('PAYPAL_CLIENT_ID');
-    const clientSecret =
-      this.configService.get<string>('PAYPAL_CLIENT_SECRET') ||
-      this.configService.get<string>('PAYPAL_SECRET');
-    const baseUrl = this.configService.get<string>('PAYPAL_BASE_URL');
-
-    if (!clientId || !clientSecret || !baseUrl) {
-      throw new Error('PayPal credentials are not configured');
-    }
-
-    return { clientId, clientSecret, baseUrl };
-  }
-
-  private async getPayPalAccessToken(): Promise<string> {
-    const { clientId, clientSecret, baseUrl } = this.getPayPalCredentials();
-    const auth = Buffer.from(`${clientId}:${clientSecret}`).toString('base64');
-
-    const response = await fetch(`${baseUrl}/v1/oauth2/token`, {
-      method: 'POST',
-      headers: {
-        Authorization: `Basic ${auth}`,
-        'Content-Type': 'application/x-www-form-urlencoded',
-      },
-      body: new URLSearchParams({ grant_type: 'client_credentials' }),
-    });
-
-    if (!response.ok) {
-      const errorText = await response.text();
-      this.logger.error(`PayPal token error: ${errorText}`);
-      throw new BadRequestException(ErrorMessages.PAYMENTS.PAYMENT_FAILED);
-    }
-
-    const data = (await response.json()) as { access_token?: string };
-    if (!data.access_token) {
-      throw new BadRequestException(ErrorMessages.PAYMENTS.PAYMENT_FAILED);
-    }
-
-    return data.access_token;
-  }
-
-  private async paypalRequest<T>(
+  private paypalRequest<T>(
     method: string,
     path: string,
     body?: unknown,
   ): Promise<T> {
-    const { baseUrl } = this.getPayPalCredentials();
-    const accessToken = await this.getPayPalAccessToken();
-
-    const response = await fetch(`${baseUrl}${path}`, {
+    return this.paypalClient.request<T>({
       method,
-      headers: {
-        Authorization: `Bearer ${accessToken}`,
-        'Content-Type': 'application/json',
-        Prefer: 'return=representation',
-      },
-      body: body ? JSON.stringify(body) : undefined,
+      path,
+      body,
+      headers: { Prefer: 'return=representation' },
     });
-
-    if (!response.ok) {
-      const errorText = await response.text();
-      this.logger.error(`PayPal request error: ${errorText}`);
-      throw new BadRequestException(ErrorMessages.PAYMENTS.PAYMENT_FAILED);
-    }
-
-    return (await response.json()) as T;
   }
 
   private getBookingAmount(booking: Booking): number {

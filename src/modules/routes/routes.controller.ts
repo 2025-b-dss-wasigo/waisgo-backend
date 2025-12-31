@@ -1,5 +1,4 @@
 import {
-  BadRequestException,
   Controller,
   Get,
   Patch,
@@ -24,37 +23,17 @@ import { Roles, User } from '../common/Decorators';
 import { RolUsuarioEnum } from '../auth/Enum';
 import { RoutesService } from './routes.service';
 import { CreateRouteDto, SearchRoutesDto, AddStopDto } from './Dto';
-import type { JwtPayload, AuthContext } from '../common/types';
-import { ErrorMessages } from '../common/constants/error-messages.constant';
-import { isValidIdentifier } from '../common/utils/public-id.util';
+import type { JwtPayload } from '../common/types';
+import {
+  buildAuthContext,
+  validateIdentifier,
+} from '../common/utils/request-context.util';
 
 @ApiTags('Routes')
 @ApiBearerAuth('access-token')
 @Controller('routes')
 export class RoutesController {
   constructor(private readonly routesService: RoutesService) {}
-
-  private validateIdentifier(value: string, field = 'id'): string {
-    if (!isValidIdentifier(value)) {
-      throw new BadRequestException(
-        ErrorMessages.VALIDATION.INVALID_FORMAT(field),
-      );
-    }
-    return value;
-  }
-
-  private getAuthContext(req: Request): AuthContext {
-    const forwardedFor = req.headers['x-forwarded-for'];
-    const ip =
-      typeof forwardedFor === 'string'
-        ? forwardedFor.split(',')[0].trim()
-        : req.ip || req.socket?.remoteAddress || 'unknown';
-
-    return {
-      ip,
-      userAgent: req.headers['user-agent'] || 'unknown',
-    };
-  }
 
   /* ================= CONDUCTOR ================= */
 
@@ -81,7 +60,7 @@ export class RoutesController {
     return this.routesService.createRoute(
       user.sub,
       dto,
-      this.getAuthContext(req),
+      buildAuthContext(req),
     );
   }
 
@@ -137,7 +116,7 @@ export class RoutesController {
     @User() user: JwtPayload,
     @Param('id') id: string,
   ) {
-    const safeId = this.validateIdentifier(id);
+    const safeId = validateIdentifier(id);
     return this.routesService.getRouteById(user.sub, safeId);
   }
 
@@ -155,7 +134,7 @@ export class RoutesController {
     @User() user: JwtPayload,
     @Param('id') id: string,
   ) {
-    const safeId = this.validateIdentifier(id);
+    const safeId = validateIdentifier(id);
     return this.routesService.getRouteMap(user.sub, safeId);
   }
 
@@ -175,12 +154,12 @@ export class RoutesController {
     @Body() dto: AddStopDto,
     @Req() req: Request,
   ) {
-    const safeId = this.validateIdentifier(id);
+    const safeId = validateIdentifier(id);
     return this.routesService.addRouteStop(
       user.sub,
       safeId,
       dto,
-      this.getAuthContext(req),
+      buildAuthContext(req),
     );
   }
 
@@ -202,11 +181,11 @@ export class RoutesController {
     @Param('id') id: string,
     @Req() req: Request,
   ) {
-    const safeId = this.validateIdentifier(id);
+    const safeId = validateIdentifier(id);
     return this.routesService.cancelRoute(
       user.sub,
       safeId,
-      this.getAuthContext(req),
+      buildAuthContext(req),
     );
   }
 
@@ -225,11 +204,11 @@ export class RoutesController {
     @Param('id') id: string,
     @Req() req: Request,
   ) {
-    const safeId = this.validateIdentifier(id);
+    const safeId = validateIdentifier(id);
     return this.routesService.finalizeRoute(
       user.sub,
       safeId,
-      this.getAuthContext(req),
+      buildAuthContext(req),
     );
   }
 }

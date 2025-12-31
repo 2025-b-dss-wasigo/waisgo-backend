@@ -2,15 +2,13 @@ import {
   Injectable,
   NotFoundException,
   BadRequestException,
-  Logger,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, DataSource, In } from 'typeorm';
-import { ConfigService } from '@nestjs/config';
-import { URLSearchParams } from 'node:url';
 
 import { Payout } from '../Models/payout.entity';
 import { Payment } from '../Models/payment.entity';
+import { PaypalClientService } from '../paypal-client.service';
 import { Driver } from '../../drivers/Models/driver.entity';
 import { EstadoPayoutEnum, EstadoPagoEnum } from '../Enums';
 import { AuditService } from '../../audit/audit.service';
@@ -32,8 +30,6 @@ type PaypalPayoutResponse = {
 
 @Injectable()
 export class PayoutsService {
-  private readonly logger = new Logger(PayoutsService.name);
-
   constructor(
     @InjectRepository(Payout)
     private readonly payoutRepository: Repository<Payout>,
@@ -43,76 +39,9 @@ export class PayoutsService {
     private readonly driverRepository: Repository<Driver>,
     private readonly dataSource: DataSource,
     private readonly auditService: AuditService,
-    private readonly configService: ConfigService,
+    private readonly paypalClient: PaypalClientService,
     private readonly idempotencyService: IdempotencyService,
   ) {}
-
-  private getPayPalCredentials() {
-    const clientId = this.configService.get<string>('PAYPAL_CLIENT_ID');
-    const clientSecret =
-      this.configService.get<string>('PAYPAL_CLIENT_SECRET') ||
-      this.configService.get<string>('PAYPAL_SECRET');
-    const baseUrl = this.configService.get<string>('PAYPAL_BASE_URL');
-
-    if (!clientId || !clientSecret || !baseUrl) {
-      throw new Error('PayPal credentials are not configured');
-    }
-
-    return { clientId, clientSecret, baseUrl };
-  }
-
-  private async getPayPalAccessToken(): Promise<string> {
-    const { clientId, clientSecret, baseUrl } = this.getPayPalCredentials();
-    const auth = Buffer.from(`${clientId}:${clientSecret}`).toString('base64');
-
-    const response = await fetch(`${baseUrl}/v1/oauth2/token`, {
-      method: 'POST',
-      headers: {
-        Authorization: `Basic ${auth}`,
-        'Content-Type': 'application/x-www-form-urlencoded',
-      },
-      body: new URLSearchParams({ grant_type: 'client_credentials' }),
-    });
-
-    if (!response.ok) {
-      const errorText = await response.text();
-      this.logger.error(`PayPal token error: ${errorText}`);
-      throw new BadRequestException(ErrorMessages.PAYMENTS.PAYMENT_FAILED);
-    }
-
-    const data = (await response.json()) as { access_token?: string };
-    if (!data.access_token) {
-      throw new BadRequestException(ErrorMessages.PAYMENTS.PAYMENT_FAILED);
-    }
-
-    return data.access_token;
-  }
-
-  private async paypalRequest<T>(
-    method: string,
-    path: string,
-    body?: unknown,
-  ): Promise<T> {
-    const { baseUrl } = this.getPayPalCredentials();
-    const accessToken = await this.getPayPalAccessToken();
-
-    const response = await fetch(`${baseUrl}${path}`, {
-      method,
-      headers: {
-        Authorization: `Bearer ${accessToken}`,
-        'Content-Type': 'application/json',
-      },
-      body: body ? JSON.stringify(body) : undefined,
-    });
-
-    if (!response.ok) {
-      const errorText = await response.text();
-      this.logger.error(`PayPal request error: ${errorText}`);
-      throw new BadRequestException(ErrorMessages.PAYMENTS.PAYMENT_FAILED);
-    }
-
-    return (await response.json()) as T;
-  }
 
   async getMyPayouts(
     userId: string,
@@ -326,26 +255,28 @@ export class PayoutsService {
     }
 
     try {
-      const paypalResponse = await this.paypalRequest<PaypalPayoutResponse>(
-        'POST',
-        '/v1/payments/payouts',
+      const paypalResponse = await this.paypalClient.request<PaypalPayoutResponse>(
         {
-          sender_batch_header: {
-            sender_batch_id: `payout-${payout.id}-${Date.now()}`,
-            email_subject: 'Tienes un nuevo payout',
-          },
-          items: [
-            {
-              recipient_type: 'EMAIL',
-              receiver: payout.driver.paypalEmail,
-              amount: {
-                value: Number(payout.amount).toFixed(2),
-                currency: 'USD',
-              },
-              note: 'Payout WasiGo',
-              sender_item_id: payout.id,
+          method: 'POST',
+          path: '/v1/payments/payouts',
+          body: {
+            sender_batch_header: {
+              sender_batch_id: `payout-${payout.id}-${Date.now()}`,
+              email_subject: 'Tienes un nuevo payout',
             },
-          ],
+            items: [
+              {
+                recipient_type: 'EMAIL',
+                receiver: payout.driver.paypalEmail,
+                amount: {
+                  value: Number(payout.amount).toFixed(2),
+                  currency: 'USD',
+                },
+                note: 'Payout WasiGo',
+                sender_item_id: payout.id,
+              },
+            ],
+          },
         },
       );
 

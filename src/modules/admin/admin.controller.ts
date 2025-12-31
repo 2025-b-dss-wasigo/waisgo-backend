@@ -21,7 +21,8 @@ import {
 } from '@nestjs/swagger';
 
 import { Roles, User } from '../common/Decorators';
-import type { JwtPayload, AuthContext } from '../common/types';
+import type { JwtPayload } from '../common/types';
+import { buildAuthContext } from '../common/utils/request-context.util';
 import { RolUsuarioEnum } from '../auth/Enum';
 import { AdminService } from './admin.service';
 import { RejectDriverDto } from './Dto';
@@ -42,19 +43,6 @@ export class AdminDriversController {
       );
     }
     return id;
-  }
-
-  private getAuthContext(req: Request): AuthContext {
-    const forwardedFor = req.headers['x-forwarded-for'];
-    const ip =
-      typeof forwardedFor === 'string'
-        ? forwardedFor.split(',')[0].trim()
-        : req.ip || req.socket?.remoteAddress || 'unknown';
-
-    return {
-      ip,
-      userAgent: req.headers['user-agent'] || 'unknown',
-    };
   }
 
   @Roles(RolUsuarioEnum.ADMIN)
@@ -99,7 +87,7 @@ export class AdminDriversController {
     @Req() req: Request,
   ) {
     const safeId = this.validateId(id);
-    const context = this.getAuthContext(req);
+    const context = buildAuthContext(req);
     return this.adminService.approveDriver(safeId, user.id, context);
   }
 
@@ -117,7 +105,7 @@ export class AdminDriversController {
     @Req() req: Request,
   ) {
     const safeId = this.validateId(id);
-    const context = this.getAuthContext(req);
+    const context = buildAuthContext(req);
     return this.adminService.rejectDriver(safeId, dto.motivo, user.id, context);
   }
 
@@ -134,7 +122,7 @@ export class AdminDriversController {
     @Req() req: Request,
   ) {
     const safeId = this.validateId(id);
-    const context = this.getAuthContext(req);
+    const context = buildAuthContext(req);
     return this.adminService.suspendDriver(safeId, user.id, context);
   }
 
@@ -150,7 +138,7 @@ export class AdminDriversController {
     @Req() req: Request,
   ) {
     const safeId = this.validateId(id);
-    const context = this.getAuthContext(req);
+    const context = buildAuthContext(req);
     return this.adminService.approveDocument(safeId, user.id, context);
   }
 
@@ -167,7 +155,7 @@ export class AdminDriversController {
     @Req() req: Request,
   ) {
     const safeId = this.validateId(id);
-    const context = this.getAuthContext(req);
+    const context = buildAuthContext(req);
     return this.adminService.rejectDocument(
       safeId,
       dto.motivo,

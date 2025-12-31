@@ -20,8 +20,8 @@ import { VerificationService } from './verification.service';
 import { ConfirmOtpDto } from './Dto';
 import { User } from 'src/modules/common/Decorators/user.decorator';
 import type { JwtPayload } from 'src/modules/common/types/jwt-payload.type';
-import type { AuthContext } from 'src/modules/common/types/auth-context.type';
 import { ErrorMessages } from '../common/constants/error-messages.constant';
+import { buildAuthContext } from '../common/utils/request-context.util';
 import { Roles } from '../common/Decorators/roles.decorator';
 import { RolUsuarioEnum } from '../auth/Enum';
 
@@ -40,19 +40,6 @@ export class VerificationController {
    * Extrae el contexto de autenticación del request
    * para auditoría (IP, User-Agent)
    */
-  private getAuthContext(req: Request): AuthContext {
-    const forwardedFor = req.headers['x-forwarded-for'];
-    const ip =
-      typeof forwardedFor === 'string'
-        ? forwardedFor.split(',')[0].trim()
-        : req.ip || req.socket?.remoteAddress || 'unknown';
-
-    return {
-      ip,
-      userAgent: req.headers['user-agent'] || 'unknown',
-    };
-  }
-
   @Roles(RolUsuarioEnum.USER)
   @Post('send')
   @HttpCode(HttpStatus.OK)
@@ -82,7 +69,7 @@ export class VerificationController {
       );
     }
 
-    const context = this.getAuthContext(req);
+    const context = buildAuthContext(req);
     const safeUserId = await this.validateUserId(user.id);
     await this.verificationService.sendVerification(safeUserId, context);
 
@@ -126,7 +113,7 @@ export class VerificationController {
       );
     }
 
-    const context = this.getAuthContext(req);
+    const context = buildAuthContext(req);
     const safeUserId = await this.validateUserId(user.id);
     await this.verificationService.confirmVerification(
       safeUserId,

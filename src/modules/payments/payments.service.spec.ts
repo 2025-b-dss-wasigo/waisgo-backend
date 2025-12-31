@@ -30,6 +30,9 @@ describe('PaymentsService', () => {
   const configService = {
     get: jest.fn(),
   };
+  const paypalClient = {
+    request: jest.fn(),
+  };
   const idempotencyService = {
     normalizeKey: jest.fn(),
     get: jest.fn(),
@@ -47,6 +50,7 @@ describe('PaymentsService', () => {
       driverRepo as unknown as never,
       auditService as unknown as never,
       configService as unknown as never,
+      paypalClient as unknown as never,
       idempotencyService as unknown as never,
     );
   });

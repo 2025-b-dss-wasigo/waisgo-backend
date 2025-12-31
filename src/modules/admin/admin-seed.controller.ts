@@ -11,26 +11,14 @@ import { ApiBearerAuth, ApiOperation, ApiResponse, ApiTags } from '@nestjs/swagg
 import { Roles, User } from '../common/Decorators';
 import { RolUsuarioEnum } from '../auth/Enum';
 import { AdminSeedService } from './admin-seed.service';
-import type { JwtPayload, AuthContext } from '../common/types';
+import type { JwtPayload } from '../common/types';
+import { buildAuthContext } from '../common/utils/request-context.util';
 
 @ApiTags('Admin - Seed')
 @ApiBearerAuth('access-token')
 @Controller('admin/seed')
 export class AdminSeedController {
   constructor(private readonly seedService: AdminSeedService) {}
-
-  private getAuthContext(req: Request): AuthContext {
-    const forwardedFor = req.headers['x-forwarded-for'];
-    const ip =
-      typeof forwardedFor === 'string'
-        ? forwardedFor.split(',')[0].trim()
-        : req.ip || req.socket?.remoteAddress || 'unknown';
-
-    return {
-      ip,
-      userAgent: req.headers['user-agent'] || 'unknown',
-    };
-  }
 
   @Roles(RolUsuarioEnum.ADMIN)
   @Post()
@@ -40,6 +28,6 @@ export class AdminSeedController {
   @ApiResponse({ status: 201, description: 'Semilla creada correctamente.' })
   @ApiResponse({ status: 200, description: 'Semilla ya fue ejecutada.' })
   async seed(@User() user: JwtPayload, @Req() req: Request) {
-    return this.seedService.seedDatabase(user.id, this.getAuthContext(req));
+    return this.seedService.seedDatabase(user.id, buildAuthContext(req));
   }
 }
