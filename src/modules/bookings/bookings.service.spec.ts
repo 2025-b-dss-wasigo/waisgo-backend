@@ -124,9 +124,7 @@ describe('BookingsService', () => {
         metodoPago: MetodoPagoEnum.EFECTIVO,
         pickupLat: 1,
       }),
-    ).rejects.toThrow(
-      ErrorMessages.VALIDATION.INVALID_FORMAT('pickupCoords'),
-    );
+    ).rejects.toThrow(ErrorMessages.VALIDATION.INVALID_FORMAT('pickupCoords'));
   });
 
   it('creates booking and logs audit events', async () => {
@@ -137,7 +135,7 @@ describe('BookingsService', () => {
     bookingRepository.count.mockResolvedValue(0);
 
     const transactionSpy = jest
-      .spyOn(service as never, 'createBookingTransaction')
+      .spyOn(service as any, 'createBookingTransaction')
       .mockResolvedValue({
         bookingId: 'booking-id',
         bookingPublicId: 'BKG_123',
@@ -187,7 +185,7 @@ describe('BookingsService', () => {
     };
 
     await expect(
-      (service as never).createBookingTransaction(
+      (service as any).createBookingTransaction(
         manager,
         'passenger-id',
         {
@@ -230,7 +228,7 @@ describe('BookingsService', () => {
     };
 
     await expect(
-      (service as never).createBookingTransaction(
+      (service as any).createBookingTransaction(
         manager,
         'passenger-id',
         {
@@ -276,10 +274,10 @@ describe('BookingsService', () => {
     };
 
     const otpSpy = jest
-      .spyOn(service as never, 'generateOtp')
+      .spyOn(service as any, 'generateOtp')
       .mockReturnValue('123456');
 
-    const result = await (service as never).createBookingTransaction(
+    const result = await (service as any).createBookingTransaction(
       manager,
       'passenger-id',
       {
@@ -355,6 +353,7 @@ describe('BookingsService', () => {
       id: 'payment-id',
       bookingId: 'booking-id',
       status: EstadoPagoEnum.PENDING,
+      failureReason: null,
     };
     paymentRepository.findOne.mockResolvedValue(payment);
     paymentRepository.save.mockResolvedValue(payment);
@@ -387,12 +386,7 @@ describe('BookingsService', () => {
     });
 
     await expect(
-      service.verifyOtp(
-        'driver-user',
-        'BKG_123',
-        '999999',
-        context,
-      ),
+      service.verifyOtp('driver-user', 'BKG_123', '999999', context),
     ).rejects.toThrow(ErrorMessages.TRIP_OTP.OTP_INVALID);
 
     expect(auditService.logEvent).toHaveBeenCalledWith(
