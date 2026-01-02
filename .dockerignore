@@ -1,14 +1,104 @@
+# Dependencies
 node_modules
+npm-debug.log*
+pnpm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Build output
 dist
-.git
-.gitignore
-.env
-.env.*
-Dockerfile
-docker-compose.yml
-README.md
 coverage
+*.tsbuildinfo
+
+# Logs
 logs
 *.log
+
+# IDE/editor folders
 .vscode
 .idea
+.project
+.classpath
+.settings
+*.sublime-workspace
+
+# Git
+.git
+.gitignore
+.gitattributes
+
+# Environment files
+.env
+.env.*
+.env.template
+.env.test
+.env.test.template
+
+# Docker files
+Dockerfile
+docker-compose.yml
+.dockerignore
+
+# SonarQube and scanner
+.sonarlint
+.sonarlint/*
+.scannerwork
+.scannerwork/*
+
+# Test coverage
+coverage
+.nyc_output
+
+# Documentation and architecture
+README.md
+architecture/
+docs/
+
+# CI/CD
+.github/
+
+# Scripts (opcional, si no los necesitas en producción)
+scripts/
+
+# Misc
+.prettierrc
+.eslintrc.js
+eslint.config.mjs
+sonar-project.properties
+tsconfig.json
+tsconfig.build.json
+nest-cli.json
+.DS_Store
+Thumbs.db
+*.swp
+*.swo
+*~
+
+# Test files
+test/
+**/*.spec.ts
+**/*.e2e-spec.ts
+**/*.int-spec.ts
+
+# TypeORM migration source (solo incluir compilados)
+ormconfig.migration.ts
+
+# Database files
+*.sql
+*.dump
+init.sql
+
+# Secrets / credentials
+*.pem
+*.key
+*.p12
+*.pfx
+*.crt
+*.cer
+*.jks
+*.keystore
+*.kubeconfig
+*.kubeconfig.*
+.envrc
+.npmrc
+commands.txt

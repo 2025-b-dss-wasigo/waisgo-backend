@@ -1,7 +1,12 @@
-# compiled output
+# Compiled output
 /dist
 /node_modules
-/build
+*.tsbuildinfo
+
+# Adicional
+.vscode
+snyk_rules.instructions.md
+ormconfig.migration.js.map
 
 # Logs
 logs
@@ -14,6 +19,7 @@ lerna-debug.log*
 
 # OS
 .DS_Store
+Thumbs.db
 
 # Tests
 /coverage
@@ -27,44 +33,64 @@ lerna-debug.log*
 *.launch
 .settings/
 *.sublime-workspace
-
-# IDE - VSCode
 .vscode/*
 !.vscode/settings.json
 !.vscode/tasks.json
 !.vscode/launch.json
 !.vscode/extensions.json
 
-# dotenv environment variable files
+# Environment variables
 .env
-.env.test
-.env.development.local
-.env.test.local
-.env.production.local
-.env.local
+.env.*
+!.env.template
+!.env.test.template
+!.env.docker.template
 
-# temp directory
-.temp
-.tmp
+# Temp files
+*.swp
+*.swo
+*~
 
-# Runtime data
-pids
-*.pid
-*.seed
-*.pid.lock
+# Build artifacts
+build/
+tmp/
+temp/
 
-# Diagnostic reports (https://nodejs.org/api/report.html)
-report.[0-9]*.[0-9]*.[0-9]*.[0-9]*.json
+# SonarQube
+.sonarlint/
+.scannerwork/
 
-# Snyk Security Extension - AI Rules (auto-generated)
-.github/instructions/snyk_rules.instructions.md
-
+# TypeORM migration compiled files
 ormconfig.migration.js
 ormconfig.migration.d.ts
-ormconfig.migration.js.map
 
-.vscode
-.scannerwork
+# Database dumps
+*.sql
+*.dump
+
+# Docker volumes data (si usas bind mounts locales)
+/postgres-data/
+/redis-data/
+
+# Package manager lock files alternatives
+pnpm-lock.yaml
+yarn.lock
+
+# Misc
+.notes
 commands.txt
+TODO.md
 
-.sonarlint
+# Secrets / credentials
+*.pem
+*.key
+*.p12
+*.pfx
+*.crt
+*.cer
+*.jks
+*.keystore
+*.kubeconfig
+*.kubeconfig.*
+.envrc
+.npmrc
