@@ -1,17 +1,15 @@
 # ======================
 # STAGE 1: BUILD
 # ======================
-FROM node:20-slim AS builder
+FROM node:20.19.6-alpine3.21 AS builder
 
 WORKDIR /app
 
-RUN apt-get update && apt-get install -y --no-install-recommends \
+RUN apk add --no-cache \
     ca-certificates \
-    build-essential \
     python3 \
     g++ \
-    make \
-    && rm -rf /var/lib/apt/lists/*
+    make
 
 COPY package*.json ./
 RUN npm ci
@@ -22,15 +20,15 @@ RUN npm run build
 # ======================
 # STAGE 2: PRODUCTION
 # ======================
-FROM node:20-slim
+FROM node:20.19.6-alpine3.21
 
 WORKDIR /app
 
-RUN apt-get update && apt-get install -y --no-install-recommends \
+RUN apk add --no-cache \
     ca-certificates \
     && rm -rf /var/lib/apt/lists/*
 
-RUN groupadd --system appgroup && useradd --system --gid appgroup appuser
+RUN addgroup -S appgroup && adduser -S appuser -G appgroup
 
 COPY --from=builder /app/dist ./dist
 COPY --from=builder /app/node_modules ./node_modules
