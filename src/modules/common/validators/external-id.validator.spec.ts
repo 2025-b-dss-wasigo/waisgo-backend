@@ -14,6 +14,11 @@ class UserIdDto {
   value: string;
 }
 
+class LimitedAliasDto {
+  @IsUserIdentifier(undefined, 5)
+  value: string;
+}
+
 const uuid = '11111111-2222-3333-4444-555555555555';
 const publicId = 'RTE_ABCDEFGH';
 const alias = 'pepito';
@@ -60,6 +65,34 @@ describe('external id validators', () => {
 
     const dto = new UserIdDto();
     dto.value = uuid;
+
+    const errors = await validate(dto);
+    expect(errors.length).toBeGreaterThan(0);
+  });
+
+  it('accepts uuid for external identifiers when enabled', async () => {
+    process.env.ALLOW_UUID_IDENTIFIERS = 'true';
+
+    const dto = new ExternalIdDto();
+    dto.value = uuid;
+
+    const errors = await validate(dto);
+    expect(errors).toHaveLength(0);
+  });
+
+  it('rejects long aliases for user identifiers', async () => {
+    process.env.ALLOW_UUID_IDENTIFIERS = 'false';
+
+    const dto = new LimitedAliasDto();
+    dto.value = 'too-long-alias';
+
+    const errors = await validate(dto);
+    expect(errors.length).toBeGreaterThan(0);
+  });
+
+  it('rejects non-string identifiers', async () => {
+    const dto = new UserIdDto();
+    (dto as { value: unknown }).value = 1234;
 
     const errors = await validate(dto);
     expect(errors.length).toBeGreaterThan(0);

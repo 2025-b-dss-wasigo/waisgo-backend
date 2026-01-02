@@ -5,6 +5,8 @@ import { EstadoConductorEnum } from '../drivers/Enums/estado-conductor.enum';
 import { ErrorMessages } from '../common/constants/error-messages.constant';
 import type { AuthContext } from '../common/types';
 import * as publicIdUtil from '../common/utils/public-id.util';
+import * as routeStopUtil from '../common/utils/route-stop.util';
+import { EstadoPagoEnum } from '../payments/Enums';
 
 describe('RoutesService', () => {
   const routeRepository = {
@@ -201,5 +203,121 @@ describe('RoutesService', () => {
         context,
       ),
     ).rejects.toThrow(ForbiddenException);
+  });
+
+  it('getRouteById rejects access when user is not driver or passenger', async () => {
+    routeRepository.findOne.mockResolvedValue({
+      id: 'route-id',
+      estado: EstadoRutaEnum.CANCELADA,
+      driver: { userId: 'driver-user' },
+    });
+    bookingRepository.findOne.mockResolvedValue(null);
+
+    await expect(
+      service.getRouteById('passenger-id', 'RTE_123'),
+    ).rejects.toThrow(ErrorMessages.ROUTES.ROUTE_NOT_FOUND);
+  });
+
+  it('getRouteMap returns stops for active routes', async () => {
+    routeRepository.findOne.mockResolvedValue({
+      id: 'route-id',
+      estado: EstadoRutaEnum.ACTIVA,
+      driver: { userId: 'driver-user' },
+    });
+    routeStopRepository.find.mockResolvedValue([{ id: 'stop-1', orden: 1 }]);
+
+    const result = await service.getRouteMap('user-id', 'RTE_123');
+
+    expect(result).toEqual({
+      message: ErrorMessages.ROUTES.ROUTE_MAP,
+      stops: [{ id: 'stop-1', orden: 1 }],
+    });
+  });
+
+  it('adds a new route stop and updates ordering', async () => {
+    driverRepository.findOne.mockResolvedValue({
+      id: 'driver-id',
+      estado: EstadoConductorEnum.APROBADO,
+    });
+    routeRepository.findOne.mockResolvedValue({
+      id: 'route-id',
+      estado: EstadoRutaEnum.ACTIVA,
+      stops: [
+        { id: 's1', orden: 1, lat: 0, lng: 0 },
+        { id: 's2', orden: 2, lat: 1, lng: 1 },
+      ],
+    });
+    routeStopRepository.create.mockImplementation((input) => ({ ...input }));
+
+    const planSpy = jest
+      .spyOn(routeStopUtil, 'planStopInsertion')
+      .mockReturnValue({
+        newOrder: 2,
+        updates: [{ id: 's2', orden: 3, lat: 1, lng: 1 }],
+      });
+    const idSpy = jest
+      .spyOn(publicIdUtil, 'generatePublicId')
+      .mockResolvedValue('STP_123');
+
+    const result = await service.addRouteStop(
+      'user-id',
+      'RTE_123',
+      { lat: 1, lng: 2, direccion: 'Calle 1' },
+      context,
+    );
+
+    expect(result).toEqual({ message: ErrorMessages.ROUTES.ROUTE_STOP_ADDED });
+    expect(routeStopRepository.save).toHaveBeenCalledTimes(2);
+
+    planSpy.mockRestore();
+    idSpy.mockRestore();
+  });
+
+  it('cancels route and marks payments failed when refunds fail', async () => {
+    driverRepository.findOne.mockResolvedValue({
+      id: 'driver-id',
+      estado: EstadoConductorEnum.APROBADO,
+    });
+    routeRepository.findOne.mockResolvedValue({
+      id: 'route-id',
+      estado: EstadoRutaEnum.ACTIVA,
+    });
+
+    const payments = [
+      { id: 'pay-1', status: EstadoPagoEnum.PAID },
+      { id: 'pay-2', status: EstadoPagoEnum.PENDING },
+    ];
+    const paymentsQuery = {
+      leftJoin: jest.fn().mockReturnThis(),
+      where: jest.fn().mockReturnThis(),
+      andWhere: jest.fn().mockReturnThis(),
+      getMany: jest.fn().mockResolvedValue(payments),
+    };
+    paymentRepository.createQueryBuilder.mockReturnValue(paymentsQuery);
+    paymentsService.reversePayment.mockRejectedValue(new Error('refund failed'));
+    paymentRepository.save.mockResolvedValue({});
+
+    await service.cancelRoute('user-id', 'RTE_123', context);
+
+    expect(payments[0].status).toBe(EstadoPagoEnum.FAILED);
+    expect(payments[0].failureReason).toBe('Refund failed after route cancel');
+    expect(payments[1].status).toBe(EstadoPagoEnum.FAILED);
+    expect(payments[1].failureReason).toBe('Route cancelled');
+  });
+
+  it('finalizeRoute rejects when there are pending bookings', async () => {
+    driverRepository.findOne.mockResolvedValue({
+      id: 'driver-id',
+      estado: EstadoConductorEnum.APROBADO,
+    });
+    routeRepository.findOne.mockResolvedValue({
+      id: 'route-id',
+      estado: EstadoRutaEnum.ACTIVA,
+    });
+    bookingRepository.find.mockResolvedValue([{ id: 'booking-1' }]);
+
+    await expect(
+      service.finalizeRoute('user-id', 'RTE_123', context),
+    ).rejects.toThrow(ErrorMessages.ROUTES.ROUTE_NOT_FINISHED);
   });
 });

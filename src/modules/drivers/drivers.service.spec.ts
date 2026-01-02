@@ -90,6 +90,21 @@ describe('DriversService', () => {
     expect(result.documents[0].signedUrl).toBe('signed-url');
   });
 
+  it('returns empty signed urls when bucket is missing', async () => {
+    driverRepo.findOne.mockResolvedValue({
+      id: 'driver-id',
+      estado: EstadoConductorEnum.PENDIENTE,
+      documents: [{ id: 'doc-1', archivoUrl: 'doc.pdf' }],
+      vehicles: [],
+    });
+    configService.get.mockReturnValue(null);
+
+    const result = await service.getMyDriverStatus('user-id');
+
+    expect(result.documents[0].signedUrl).toBe('');
+    expect(result.canUploadDocuments).toBe(true);
+  });
+
   it('throws when file is missing', async () => {
     await expect(
       service.uploadDocument(
@@ -156,6 +171,27 @@ describe('DriversService', () => {
     ).rejects.toThrow(ForbiddenException);
   });
 
+  it('throws when driver is rejected and tries to upload', async () => {
+    const file = {
+      size: 100,
+      mimetype: 'image/png',
+      buffer: Buffer.from('x'),
+    } as Express.Multer.File;
+    driverRepo.findOne.mockResolvedValue({
+      id: 'driver-id',
+      estado: EstadoConductorEnum.RECHAZADO,
+    });
+
+    await expect(
+      service.uploadDocument(
+        'user-id',
+        TipoDocumentoEnum.LICENCIA,
+        file,
+        context,
+      ),
+    ).rejects.toThrow(ErrorMessages.DRIVER.CANNOT_UPLOAD_WHEN_REJECTED);
+  });
+
   it('throws when business user is missing on apply', async () => {
     businessUserRepo.findOne.mockResolvedValue(null);
 
@@ -179,6 +215,26 @@ describe('DriversService', () => {
     await expect(
       service.applyAsDriver('user-id', 'driver@epn.edu.ec', context),
     ).rejects.toThrow(ErrorMessages.DRIVER.REQUEST_PENDING);
+  });
+
+  it('rejects reapply when cooldown has not passed', async () => {
+    const rejectedDriver = {
+      id: 'driver-id',
+      publicId: 'DRV_OLD',
+      estado: EstadoConductorEnum.RECHAZADO,
+      fechaRechazo: new Date(Date.now() - 2 * 24 * 60 * 60 * 1000),
+    };
+    businessUserRepo.findOne.mockResolvedValue({
+      id: 'user-id',
+      email: 'driver@epn.edu.ec',
+      alias: 'Alias',
+      profile: null,
+    });
+    driverRepo.findOne.mockResolvedValue(rejectedDriver);
+
+    await expect(
+      service.applyAsDriver('user-id', 'driver@epn.edu.ec', context),
+    ).rejects.toThrow(ErrorMessages.DRIVER.REQUEST_REJECTED_COOLDOWN);
   });
 
   it('reapplies after rejection cooldown', async () => {

@@ -32,4 +32,15 @@ describe('IdempotencyService', () => {
 
     expect(value).toEqual({ ok: true });
   });
+
+  it('returns null when stored payload is invalid', async () => {
+    const redis = new FakeRedisService();
+    const service = new IdempotencyService(redis as never);
+
+    await redis.set('idempotency:scope:user:key', 'not-json');
+
+    const value = await service.get('scope', 'user', 'key');
+
+    expect(value).toBeNull();
+  });
 });

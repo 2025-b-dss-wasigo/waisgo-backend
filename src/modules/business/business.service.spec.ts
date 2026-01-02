@@ -2,6 +2,7 @@ import { NotFoundException } from '@nestjs/common';
 import { BusinessService } from './business.service';
 import { ErrorMessages } from '../common/constants/error-messages.constant';
 import type { AuthContext } from '../common/types';
+import * as publicIdUtil from '../common/utils/public-id.util';
 
 describe('BusinessService', () => {
   const businessUserRepo = {
@@ -49,6 +50,57 @@ describe('BusinessService', () => {
     ).rejects.toThrow(NotFoundException);
   });
 
+  it('creates business user from auth data', async () => {
+    businessUserRepo.create.mockImplementation((input) => ({ ...input }));
+    profileRepo.create.mockImplementation((input) => ({ ...input }));
+    businessUserRepo.save.mockResolvedValue({});
+
+    const idSpy = jest
+      .spyOn(publicIdUtil, 'generatePublicId')
+      .mockResolvedValue('USR_123');
+
+    const result = await service.createFromAuth('user-id', {
+      email: 'user@epn.edu.ec',
+      nombre: 'Ana',
+      apellido: 'Perez',
+      celular: '0999999999',
+    });
+
+    expect(result.publicId).toBe('USR_123');
+    expect(result.alias).toMatch(/^Pasajero/);
+    expect(businessUserRepo.save).toHaveBeenCalled();
+
+    idSpy.mockRestore();
+  });
+
+  it('creates business user with manager', async () => {
+    const manager = {
+      getRepository: jest.fn(() => ({ findOne: jest.fn() })),
+      create: jest.fn().mockImplementation((_entity, input) => ({ ...input })),
+      save: jest.fn().mockResolvedValue({}),
+    };
+
+    const idSpy = jest
+      .spyOn(publicIdUtil, 'generatePublicId')
+      .mockResolvedValue('USR_456');
+
+    const result = await service.createFromAuthWithManager(
+      manager as never,
+      'user-id',
+      {
+        email: 'user@epn.edu.ec',
+        nombre: 'Ana',
+        apellido: 'Perez',
+        celular: '0999999999',
+      },
+    );
+
+    expect(result.publicId).toBe('USR_456');
+    expect(manager.save).toHaveBeenCalled();
+
+    idSpy.mockRestore();
+  });
+
   it('updates profile fields and logs audit', async () => {
     const profile = { nombre: 'A', apellido: 'B', celular: '123' };
     profileRepo.findOne.mockResolvedValue(profile);
@@ -86,6 +138,17 @@ describe('BusinessService', () => {
     expect(name).toBe('Ana Perez');
   });
 
+  it('returns alias when profile name is missing', async () => {
+    businessUserRepo.findOne.mockResolvedValue({
+      alias: 'Alias',
+      profile: null,
+    });
+
+    const name = await service.getDisplayName('user-id');
+
+    expect(name).toBe('Alias');
+  });
+
   it('throws when user is missing in getMyProfile', async () => {
     businessUserRepo.findOne.mockResolvedValue(null);
 
@@ -115,6 +178,52 @@ describe('BusinessService', () => {
     const profile = await service.getMyProfile('user-id');
 
     expect(profile.avatarUrl).toBe('signed-url');
+  });
+
+  it('returns profile with stored avatar url when available', async () => {
+    businessUserRepo.findOne.mockResolvedValue({
+      id: 'user-id',
+      publicId: 'USR_123',
+      alias: 'Alias',
+      email: 'test@epn.edu.ec',
+      profile: {
+        nombre: 'Ana',
+        apellido: 'Perez',
+        celular: '123',
+        fotoPerfilUrl: 'avatars/user.jpg',
+        ratingPromedio: 5,
+        totalViajes: 0,
+      },
+    });
+    configService.getOrThrow.mockReturnValue('bucket');
+    storageService.getSignedUrl.mockResolvedValue('stored-url');
+
+    const profile = await service.getMyProfile('user-id');
+
+    expect(profile.avatarUrl).toBe('stored-url');
+  });
+
+  it('throws when profile is missing in updateProfilePhoto', async () => {
+    profileRepo.findOne.mockResolvedValue(null);
+
+    await expect(
+      service.updateProfilePhoto(
+        'user-id',
+        {
+          buffer: Buffer.from('file'),
+          mimetype: 'image/jpeg',
+        } as Express.Multer.File,
+        context,
+      ),
+    ).rejects.toThrow(NotFoundException);
+  });
+
+  it('softDeleteUser logs audit when user is deleted', async () => {
+    businessUserRepo.update.mockResolvedValue({ affected: 1 });
+
+    await service.softDeleteUser('user-id', context);
+
+    expect(auditService.logEvent).toHaveBeenCalled();
   });
 
   it('updates profile photo', async () => {

@@ -65,6 +65,20 @@ describe('PaypalClientService', () => {
     ).rejects.toThrow(ErrorMessages.PAYMENTS.PAYMENT_FAILED);
   });
 
+  it('throws when token response has no access token', async () => {
+    setCredentials();
+    const service = new PaypalClientService(configService as never);
+
+    fetchMock.mockResolvedValueOnce({
+      ok: true,
+      json: async () => ({}),
+    });
+
+    await expect(
+      service.request({ method: 'GET', path: '/v1/test' }),
+    ).rejects.toThrow(ErrorMessages.PAYMENTS.PAYMENT_FAILED);
+  });
+
   it('returns response data for successful calls', async () => {
     setCredentials();
     const service = new PaypalClientService(configService as never);
