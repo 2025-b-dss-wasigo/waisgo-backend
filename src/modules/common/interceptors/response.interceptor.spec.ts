@@ -59,4 +59,18 @@ describe('ResponseInterceptor', () => {
     expect(result.message).toBe('ok');
     expect(result.data).toEqual({ userId: 'USR_1234' });
   });
+
+  it('preserves success false for formatted responses with data', async () => {
+    const interceptor = new ResponseInterceptor();
+    const payload = { success: false, message: 'fail', reason: 'bad' };
+    const handler = { handle: () => of(payload) };
+
+    const result = await lastValueFrom(
+      interceptor.intercept(ctx, handler as never),
+    );
+
+    expect(result.success).toBe(false);
+    expect(result.message).toBe('fail');
+    expect(result.data).toEqual({ reason: 'bad' });
+  });
 });

@@ -125,4 +125,139 @@ describe('JweAuthGuard', () => {
       ),
     ).rejects.toThrow(ErrorMessages.SYSTEM.TOKEN_REVOKED);
   });
+
+  it('rejects malformed tokens', async () => {
+    reflector.getAllAndOverride = jest.fn().mockReturnValue(false);
+    const guard = new JweAuthGuard(
+      configService as never,
+      reflector,
+      redisService as never,
+    );
+
+    await expect(
+      guard.canActivate(
+        makeContext({
+          headers: { authorization: 'Bearer a.b.c' },
+        }),
+      ),
+    ).rejects.toThrow(ErrorMessages.SYSTEM.TOKEN_REQUIRED);
+  });
+
+  it('rejects expired tokens', async () => {
+    reflector.getAllAndOverride = jest.fn().mockReturnValue(false);
+    const guard = new JweAuthGuard(
+      configService as never,
+      reflector,
+      redisService as never,
+    );
+
+    (jwtDecrypt as jest.Mock).mockResolvedValue({
+      payload: {
+        sub: 'user-id',
+        role: RolUsuarioEnum.USER,
+        isVerified: true,
+        jti: 'jti',
+        iat: 1,
+        exp: Math.floor(Date.now() / 1000) - 10,
+        iss: 'wasigo-api',
+        aud: 'wasigo-app',
+      },
+    });
+
+    await expect(
+      guard.canActivate(
+        makeContext({
+          headers: { authorization: 'Bearer a.b.c.d.e' },
+        }),
+      ),
+    ).rejects.toThrow(ErrorMessages.SYSTEM.TOKEN_EXPIRED);
+  });
+
+  it('rejects tokens when user sessions are revoked', async () => {
+    reflector.getAllAndOverride = jest.fn().mockReturnValue(false);
+    const guard = new JweAuthGuard(
+      configService as never,
+      reflector,
+      redisService as never,
+    );
+
+    (jwtDecrypt as jest.Mock).mockResolvedValue({
+      payload: {
+        sub: 'user-id',
+        role: RolUsuarioEnum.USER,
+        isVerified: true,
+        jti: 'jti',
+        iat: 1,
+        exp: Math.floor(Date.now() / 1000) + 60,
+        iss: 'wasigo-api',
+        aud: 'wasigo-app',
+      },
+    });
+    redisService.isTokenRevoked.mockResolvedValue(false);
+    redisService.isUserSessionRevoked.mockResolvedValue(true);
+
+    await expect(
+      guard.canActivate(
+        makeContext({
+          headers: { authorization: 'Bearer a.b.c.d.e' },
+        }),
+      ),
+    ).rejects.toThrow(ErrorMessages.SYSTEM.SESSION_EXPIRED);
+  });
+
+  it('rejects tokens missing required fields', async () => {
+    reflector.getAllAndOverride = jest.fn().mockReturnValue(false);
+    const guard = new JweAuthGuard(
+      configService as never,
+      reflector,
+      redisService as never,
+    );
+
+    (jwtDecrypt as jest.Mock).mockResolvedValue({
+      payload: {
+        sub: 'user-id',
+        isVerified: true,
+        iat: 1,
+        exp: Math.floor(Date.now() / 1000) + 60,
+        iss: 'wasigo-api',
+        aud: 'wasigo-app',
+      },
+    });
+
+    await expect(
+      guard.canActivate(
+        makeContext({
+          headers: { authorization: 'Bearer a.b.c.d.e' },
+        }),
+      ),
+    ).rejects.toThrow(ErrorMessages.SYSTEM.TOKEN_MALFORMED);
+  });
+
+  it('rejects when token decryption fails', async () => {
+    reflector.getAllAndOverride = jest.fn().mockReturnValue(false);
+    const guard = new JweAuthGuard(
+      configService as never,
+      reflector,
+      redisService as never,
+    );
+
+    (jwtDecrypt as jest.Mock).mockRejectedValue(new Error('bad-token'));
+
+    await expect(
+      guard.canActivate(
+        makeContext({
+          headers: { authorization: 'Bearer a.b.c.d.e' },
+        }),
+      ),
+    ).rejects.toThrow(ErrorMessages.SYSTEM.INVALID_TOKEN);
+  });
+
+  it('throws when JWT_SECRET is invalid length', () => {
+    const badConfig = { get: jest.fn(() => 'short') };
+
+    expect(
+      () =>
+        new JweAuthGuard(badConfig as never, reflector, redisService as never),
+    ).toThrow('JWT_SECRET debe existir y tener EXACTAMENTE 32 caracteres');
+  });
 });

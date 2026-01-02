@@ -17,6 +17,7 @@ describe('PaymentsService', () => {
     findOne: jest.fn(),
     create: jest.fn(),
     save: jest.fn(),
+    createQueryBuilder: jest.fn(),
   };
   const bookingRepo = {
     findOne: jest.fn(),
@@ -64,6 +65,22 @@ describe('PaymentsService', () => {
         method: MetodoPagoEnum.EFECTIVO,
       }),
     ).rejects.toThrow(NotFoundException);
+  });
+
+  it('returns cached response when idempotency key is hit', async () => {
+    idempotencyService.normalizeKey.mockReturnValue('key');
+    idempotencyService.get.mockResolvedValue({
+      message: 'cached',
+      paymentId: 'PAY_1',
+    });
+
+    const response = await service.createPayment('passenger-id', {
+      bookingId: 'BKG_123',
+      method: MetodoPagoEnum.EFECTIVO,
+    });
+
+    expect(response).toEqual({ message: 'cached', paymentId: 'PAY_1' });
+    expect(bookingRepo.findOne).not.toHaveBeenCalled();
   });
 
   it('throws when booking belongs to another passenger', async () => {
@@ -197,12 +214,52 @@ describe('PaymentsService', () => {
     publicIdSpy.mockRestore();
   });
 
+  it('rejects invalid status filter on getMyPayments', async () => {
+    const query = {
+      leftJoinAndSelect: jest.fn().mockReturnThis(),
+      where: jest.fn().mockReturnThis(),
+      orderBy: jest.fn().mockReturnThis(),
+      andWhere: jest.fn().mockReturnThis(),
+      getMany: jest.fn(),
+    };
+    paymentRepo.createQueryBuilder.mockReturnValue(query);
+
+    await expect(
+      service.getMyPayments('passenger-id', 'INVALID'),
+    ).rejects.toThrow(ErrorMessages.VALIDATION.INVALID_FORMAT('status'));
+  });
+
   it('throws when paypal payment is not found', async () => {
     paymentRepo.findOne.mockResolvedValue(null);
 
     await expect(
       service.createPaypalOrder('passenger-id', 'PAY_123'),
     ).rejects.toThrow(NotFoundException);
+  });
+
+  it('throws when paypal order is missing approval link', async () => {
+    const payment = {
+      id: 'payment-id',
+      booking: { passengerId: 'passenger-id' },
+      method: MetodoPagoEnum.PAYPAL,
+      status: EstadoPagoEnum.PENDING,
+      currency: 'USD',
+      amount: 2.5,
+    } as Payment;
+
+    paymentRepo.findOne.mockResolvedValue(payment);
+    configService.get.mockImplementation((key: string) => {
+      if (key === 'FRONTEND_URL') return 'http://frontend';
+      return undefined;
+    });
+    paypalClient.request.mockResolvedValue({
+      id: 'ORDER_123',
+      links: [],
+    });
+
+    await expect(
+      service.createPaypalOrder('passenger-id', 'PAY_123'),
+    ).rejects.toThrow(ErrorMessages.PAYMENTS.PAYMENT_FAILED);
   });
 
   it('creates a paypal order for a valid payment', async () => {
@@ -273,6 +330,32 @@ describe('PaymentsService', () => {
     expect(payment.status).toBe(EstadoPagoEnum.PAID);
   });
 
+  it('rejects capture when payment method is invalid', async () => {
+    const payment = {
+      id: 'payment-id',
+      booking: { passengerId: 'passenger-id' },
+      method: MetodoPagoEnum.EFECTIVO,
+      status: EstadoPagoEnum.PENDING,
+      paypalOrderId: 'ORDER_123',
+    } as Payment;
+
+    paymentRepo.findOne.mockResolvedValue(payment);
+
+    await expect(
+      service.capturePaypalOrder('passenger-id', 'PAY_123', 'ORDER_123'),
+    ).rejects.toThrow(ErrorMessages.PAYMENTS.INVALID_PAYMENT_METHOD);
+  });
+
+  it('getPaymentById rejects when payment does not belong to passenger', async () => {
+    paymentRepo.findOne.mockResolvedValue({
+      booking: { passengerId: 'other-user' },
+    } as Payment);
+
+    await expect(
+      service.getPaymentById('passenger-id', 'PAY_123'),
+    ).rejects.toThrow(NotFoundException);
+  });
+
   it('getDriverPayments throws when user is not a driver', async () => {
     driverRepo.findOne.mockResolvedValue(null);
 
@@ -287,6 +370,18 @@ describe('PaymentsService', () => {
     await expect(
       service.reversePayment('PAY_123'),
     ).rejects.toThrow(NotFoundException);
+  });
+
+  it('reversePayment throws when payment is not paid', async () => {
+    const payment = {
+      id: 'payment-id',
+      status: EstadoPagoEnum.PENDING,
+    } as Payment;
+    paymentRepo.findOne.mockResolvedValue(payment);
+
+    await expect(service.reversePayment('PAY_123')).rejects.toThrow(
+      ErrorMessages.PAYMENTS.PAYMENT_NOT_PAID,
+    );
   });
 
   it('reversePayment marks payment failed when refund fails', async () => {

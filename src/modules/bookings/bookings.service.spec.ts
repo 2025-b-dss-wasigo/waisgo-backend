@@ -14,12 +14,16 @@ import { Booking } from './Models/booking.entity';
 import { RouteStop } from '../routes/Models/route-stop.entity';
 import * as routeTimeUtil from '../common/utils/route-time.util';
 import { AuditAction } from '../audit/Enums';
+import * as publicIdUtil from '../common/utils/public-id.util';
+import * as routeStopUtil from '../common/utils/route-stop.util';
 
 describe('BookingsService', () => {
   const bookingRepository = {
     findOne: jest.fn(),
     count: jest.fn(),
     save: jest.fn(),
+    find: jest.fn(),
+    createQueryBuilder: jest.fn(),
     manager: {
       transaction: jest.fn(),
     },
@@ -125,6 +129,25 @@ describe('BookingsService', () => {
         pickupLat: 1,
       }),
     ).rejects.toThrow(ErrorMessages.VALIDATION.INVALID_FORMAT('pickupCoords'));
+  });
+
+  it('throws when pickup address is missing', async () => {
+    profileRepository.findOne.mockResolvedValue({
+      isBloqueadoPorRating: false,
+      ratingPromedio: 5,
+    });
+    bookingRepository.count.mockResolvedValue(0);
+
+    await expect(
+      service.createBooking('passenger-id', {
+        routeId: 'RTE_123',
+        metodoPago: MetodoPagoEnum.EFECTIVO,
+        pickupLat: 1,
+        pickupLng: 2,
+      }),
+    ).rejects.toThrow(
+      ErrorMessages.VALIDATION.REQUIRED_FIELD('pickupDireccion'),
+    );
   });
 
   it('creates booking and logs audit events', async () => {
@@ -298,6 +321,193 @@ describe('BookingsService', () => {
     otpSpy.mockRestore();
   });
 
+  it('createBookingTransaction rejects inactive routes', async () => {
+    const route = {
+      id: 'route-id',
+      estado: EstadoRutaEnum.CANCELADA,
+      asientosDisponibles: 2,
+      precioPasajero: 2,
+    } as Route;
+    const routeRepo = {
+      findOne: jest.fn().mockResolvedValue(route),
+      save: jest.fn(),
+    };
+    const bookingRepo = {
+      findOne: jest.fn().mockResolvedValue(null),
+      create: jest.fn(),
+      save: jest.fn(),
+    };
+    const stopRepo = {
+      find: jest.fn(),
+      save: jest.fn(),
+      create: jest.fn(),
+    };
+    const manager = {
+      getRepository: jest.fn((entity) => {
+        if (entity === Route) return routeRepo;
+        if (entity === Booking) return bookingRepo;
+        if (entity === RouteStop) return stopRepo;
+        return null;
+      }),
+    };
+
+    await expect(
+      (service as any).createBookingTransaction(
+        manager,
+        'passenger-id',
+        {
+          routeId: 'RTE_123',
+          metodoPago: MetodoPagoEnum.EFECTIVO,
+        },
+        { hasPickup: false },
+      ),
+    ).rejects.toThrow(ErrorMessages.ROUTES.ROUTE_NOT_ACTIVE);
+  });
+
+  it('createBookingTransaction rejects full routes', async () => {
+    const route = {
+      id: 'route-id',
+      estado: EstadoRutaEnum.ACTIVA,
+      asientosDisponibles: 0,
+      precioPasajero: 2,
+    } as Route;
+    const routeRepo = {
+      findOne: jest.fn().mockResolvedValue(route),
+      save: jest.fn(),
+    };
+    const bookingRepo = {
+      findOne: jest.fn().mockResolvedValue(null),
+      create: jest.fn(),
+      save: jest.fn(),
+    };
+    const stopRepo = {
+      find: jest.fn(),
+      save: jest.fn(),
+      create: jest.fn(),
+    };
+    const manager = {
+      getRepository: jest.fn((entity) => {
+        if (entity === Route) return routeRepo;
+        if (entity === Booking) return bookingRepo;
+        if (entity === RouteStop) return stopRepo;
+        return null;
+      }),
+    };
+
+    await expect(
+      (service as any).createBookingTransaction(
+        manager,
+        'passenger-id',
+        {
+          routeId: 'RTE_123',
+          metodoPago: MetodoPagoEnum.EFECTIVO,
+        },
+        { hasPickup: false },
+      ),
+    ).rejects.toThrow(ErrorMessages.ROUTES.ROUTE_FULL);
+  });
+
+  it('createBookingTransaction rejects routes without price', async () => {
+    const route = {
+      id: 'route-id',
+      estado: EstadoRutaEnum.ACTIVA,
+      asientosDisponibles: 1,
+      precioPasajero: 0,
+    } as Route;
+    const routeRepo = {
+      findOne: jest.fn().mockResolvedValue(route),
+      save: jest.fn(),
+    };
+    const bookingRepo = {
+      findOne: jest.fn().mockResolvedValue(null),
+      create: jest.fn(),
+      save: jest.fn(),
+    };
+    const stopRepo = {
+      find: jest.fn(),
+      save: jest.fn(),
+      create: jest.fn(),
+    };
+    const manager = {
+      getRepository: jest.fn((entity) => {
+        if (entity === Route) return routeRepo;
+        if (entity === Booking) return bookingRepo;
+        if (entity === RouteStop) return stopRepo;
+        return null;
+      }),
+    };
+
+    await expect(
+      (service as any).createBookingTransaction(
+        manager,
+        'passenger-id',
+        {
+          routeId: 'RTE_123',
+          metodoPago: MetodoPagoEnum.EFECTIVO,
+        },
+        { hasPickup: false },
+      ),
+    ).rejects.toThrow(ErrorMessages.ROUTES.ROUTE_PRICE_REQUIRED);
+  });
+
+  it('insertPickupStop shifts stops and saves new stop', async () => {
+    const stopRepo = {
+      find: jest.fn().mockResolvedValue([
+        { id: 's1', orden: 1, lat: 0, lng: 0 },
+        { id: 's2', orden: 2, lat: 1, lng: 1 },
+      ]),
+      save: jest.fn(),
+      create: jest.fn().mockImplementation((input) => ({ ...input })),
+    };
+
+    const planSpy = jest
+      .spyOn(routeStopUtil, 'planStopInsertion')
+      .mockReturnValue({
+        newOrder: 2,
+        updates: [{ publicId: 's2', orden: 3, lat: 1, lng: 1 } as any],
+      });
+    const idSpy = jest
+      .spyOn(publicIdUtil, 'generatePublicId')
+      .mockResolvedValue('STP_123');
+
+    await (service as any).insertPickupStop(stopRepo, 'route-id', {
+      hasPickup: true,
+      pickupLat: 1,
+      pickupLng: 2,
+      pickupDireccion: 'Calle 1',
+    });
+
+    expect(stopRepo.save).toHaveBeenCalledTimes(2);
+    expect(stopRepo.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        routeId: 'route-id',
+        publicId: 'STP_123',
+        lat: 1,
+        lng: 2,
+        direccion: 'Calle 1',
+        orden: 2,
+      }),
+    );
+
+    planSpy.mockRestore();
+    idSpy.mockRestore();
+  });
+
+  it('rejects invalid status filter on getMyBookings', async () => {
+    const query = {
+      leftJoinAndSelect: jest.fn().mockReturnThis(),
+      where: jest.fn().mockReturnThis(),
+      orderBy: jest.fn().mockReturnThis(),
+      andWhere: jest.fn().mockReturnThis(),
+      getMany: jest.fn(),
+    };
+    bookingRepository.createQueryBuilder.mockReturnValue(query);
+
+    await expect(
+      service.getMyBookings('passenger-id', 'INVALID'),
+    ).rejects.toThrow(ErrorMessages.VALIDATION.INVALID_FORMAT('estado'));
+  });
+
   it('rejects cancellation when too late', async () => {
     bookingRepository.findOne.mockResolvedValue({
       id: 'booking-id',
@@ -394,6 +604,88 @@ describe('BookingsService', () => {
         action: AuditAction.TRIP_OTP_INVALID,
       }),
     );
+  });
+
+  it('verifies OTP and logs success', async () => {
+    driverRepository.findOne.mockResolvedValue({ id: 'driver-id' });
+    const booking = {
+      id: 'booking-id',
+      routeId: 'route-id',
+      route: { driverId: 'driver-id' },
+      estado: EstadoReservaEnum.CONFIRMADA,
+      otpUsado: false,
+      otp: '123456',
+    };
+    bookingRepository.findOne.mockResolvedValue(booking);
+    bookingRepository.save.mockResolvedValue(booking);
+
+    const response = await service.verifyOtp(
+      'driver-user',
+      'BKG_123',
+      '123456',
+      context,
+    );
+
+    expect(response).toEqual({
+      message: ErrorMessages.TRIP_OTP.TRIP_STARTED,
+    });
+    expect(booking.otpUsado).toBe(true);
+    expect(auditService.logEvent).toHaveBeenCalledWith(
+      expect.objectContaining({
+        action: AuditAction.TRIP_OTP_VALIDATED,
+      }),
+    );
+  });
+
+  it('marks paid payment as failed when refund fails on cancel', async () => {
+    const booking = {
+      id: 'booking-id',
+      passengerId: 'passenger-id',
+      estado: EstadoReservaEnum.CONFIRMADA,
+      routeId: 'route-id',
+      route: { fecha: '2025-01-01', horaSalida: '10:00' },
+    };
+    bookingRepository.findOne.mockResolvedValue(booking);
+
+    bookingRepository.manager.transaction.mockImplementation(async (work) =>
+      work({
+        getRepository: jest.fn((entity) => {
+          if (entity === Booking) return { update: jest.fn() };
+          if (entity === Route)
+            return {
+              findOne: jest.fn().mockResolvedValue({
+                id: 'route-id',
+                asientosDisponibles: 1,
+                asientosTotales: 2,
+              }),
+              save: jest.fn(),
+            };
+          return null;
+        }),
+      } as never),
+    );
+
+    const departureSpy = jest
+      .spyOn(routeTimeUtil, 'getDepartureDate')
+      .mockReturnValue(new Date(Date.now() + 2 * 60 * 60 * 1000));
+
+    const payment = {
+      id: 'payment-id',
+      bookingId: 'booking-id',
+      status: EstadoPagoEnum.PAID,
+      failureReason: null,
+    };
+    paymentRepository.findOne.mockResolvedValue(payment);
+    paymentRepository.save.mockResolvedValue(payment);
+    paymentsService.reversePayment.mockRejectedValue(new Error('refund error'));
+
+    await service.cancelBooking('passenger-id', 'BKG_123', context);
+
+    expect(payment.status).toBe(EstadoPagoEnum.FAILED);
+    expect(payment.failureReason).toBe('refund error');
+    expect(paymentRepository.save).toHaveBeenCalledWith(payment);
+
+    departureSpy.mockRestore();
   });
 
   it('completes booking and finalizes route when ready', async () => {

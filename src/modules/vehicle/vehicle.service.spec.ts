@@ -8,6 +8,7 @@ import { VehicleService } from './vehicle.service';
 import { EstadoConductorEnum } from '../drivers/Enums/estado-conductor.enum';
 import { ErrorMessages } from '../common/constants/error-messages.constant';
 import type { AuthContext } from '../common/types';
+import * as publicIdUtil from '../common/utils/public-id.util';
 
 describe('VehicleService', () => {
   const vehicleRepo = {
@@ -76,6 +77,37 @@ describe('VehicleService', () => {
     ).rejects.toThrow(ConflictException);
   });
 
+  it('creates a vehicle when data is valid', async () => {
+    driverRepo.findOne.mockResolvedValue({
+      id: 'driver-id',
+      estado: EstadoConductorEnum.APROBADO,
+    });
+    vehicleRepo.findOne.mockResolvedValue(null);
+    vehicleRepo.create.mockImplementation((input) => ({ ...input }));
+    vehicleRepo.save.mockResolvedValue({ id: 'vehicle-id' });
+
+    const idSpy = jest
+      .spyOn(publicIdUtil, 'generatePublicId')
+      .mockResolvedValue('VEH_123');
+
+    const response = await service.create(
+      'user-id',
+      {
+        marca: 'Marca',
+        modelo: 'Modelo',
+        color: 'Color',
+        placa: 'abc1234',
+        asientosDisponibles: 4,
+      },
+      context,
+    );
+
+    expect(response.message).toBe(ErrorMessages.DRIVER.VEHICLE_CREATED);
+    expect(vehicleRepo.save).toHaveBeenCalled();
+
+    idSpy.mockRestore();
+  });
+
   it('returns empty list when driver does not exist', async () => {
     driverRepo.findOne.mockResolvedValue(null);
 
@@ -99,6 +131,33 @@ describe('VehicleService', () => {
         context,
       ),
     ).rejects.toThrow(NotFoundException);
+  });
+
+  it('updates a vehicle with valid data', async () => {
+    driverRepo.findOne.mockResolvedValue({
+      id: 'driver-id',
+      estado: EstadoConductorEnum.APROBADO,
+    });
+    const vehicle = {
+      id: 'vehicle-id',
+      marca: 'M',
+      modelo: 'X',
+      color: 'Blue',
+      asientosDisponibles: 2,
+    };
+    vehicleRepo.findOne.mockResolvedValue(vehicle);
+    vehicleRepo.save.mockResolvedValue(vehicle);
+
+    const response = await service.update(
+      'user-id',
+      'VEH_123',
+      { color: 'Red', asientosDisponibles: 4 },
+      context,
+    );
+
+    expect(response.message).toBe(ErrorMessages.DRIVER.VEHICLE_UPDATED);
+    expect(vehicle.color).toBe('Red');
+    expect(vehicle.asientosDisponibles).toBe(4);
   });
 
   it('throws when reactivating an already active vehicle', async () => {
@@ -132,6 +191,33 @@ describe('VehicleService', () => {
     ).rejects.toThrow(
       ErrorMessages.DRIVER.VEHICLE_REACTIVATION_EXPIRED,
     );
+  });
+
+  it('reactivates a vehicle when within window', async () => {
+    driverRepo.findOne.mockResolvedValue({
+      id: 'driver-id',
+      estado: EstadoConductorEnum.APROBADO,
+    });
+    const vehicle = {
+      id: 'vehicle-id',
+      isActivo: false,
+      updatedAt: new Date(Date.now() - 5 * 24 * 60 * 60 * 1000),
+    };
+    vehicleRepo.findOne.mockResolvedValue(vehicle);
+    vehicleRepo.save.mockResolvedValue(vehicle);
+
+    const response = await service.reactivate('user-id', 'VEH_123', context);
+
+    expect(response.message).toBe(ErrorMessages.DRIVER.VEHICLE_REACTIVATED);
+    expect(vehicle.isActivo).toBe(true);
+  });
+
+  it('returns vehicle by id', async () => {
+    vehicleRepo.findOne.mockResolvedValue({ id: 'vehicle-id' });
+
+    const result = await service.getById('VEH_123');
+
+    expect(result).toEqual({ id: 'vehicle-id' });
   });
 
   it('disables a vehicle', async () => {

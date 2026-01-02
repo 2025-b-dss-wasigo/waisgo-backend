@@ -39,4 +39,44 @@ describe('response sanitizer', () => {
       'DRV_ABCDEFGH',
     );
   });
+
+  it('keeps non-uuid ids when there is no publicId', () => {
+    const input = { id: 'internal-id', name: 'Test' };
+
+    const result = sanitizeResponseData(input) as Record<string, unknown>;
+
+    expect(result.id).toBe('internal-id');
+    expect(result.name).toBe('Test');
+  });
+
+  it('removes relation ids when no external id is available', () => {
+    const input = {
+      driverId: '11111111-2222-3333-4444-555555555555',
+      driver: { id: '11111111-2222-3333-4444-555555555555' },
+    };
+
+    const result = sanitizeResponseData(input) as Record<string, unknown>;
+
+    expect(result).not.toHaveProperty('driverId');
+  });
+
+  it('preserves public ids already present in relation fields', () => {
+    const input = {
+      bookingId: 'BKG_ABCDEFGH',
+    };
+
+    const result = sanitizeResponseData(input) as Record<string, unknown>;
+
+    expect(result.bookingId).toBe('BKG_ABCDEFGH');
+  });
+
+  it('sanitizes arrays and avoids cycles', () => {
+    const obj: Record<string, unknown> = { publicId: 'USR_ABCDEFGH' };
+    obj.self = obj;
+
+    const result = sanitizeResponseData([obj]) as Record<string, unknown>[];
+
+    expect(result[0].publicId).toBe('USR_ABCDEFGH');
+    expect(result[0]).toHaveProperty('self', undefined);
+  });
 });

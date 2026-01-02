@@ -56,4 +56,14 @@ describe('public-id utils', () => {
     expect(id).toMatch(/^PAY_[A-Z0-9]{8}$/);
     expect(repo.findOne).toHaveBeenCalled();
   });
+
+  it('throws when unable to generate a unique publicId', async () => {
+    const repo = {
+      findOne: jest.fn().mockResolvedValue({ id: 'existing' }),
+    };
+
+    await expect(
+      generatePublicId(repo as never, 'PAY', 2),
+    ).rejects.toThrow('Unable to generate unique publicId');
+  });
 });
