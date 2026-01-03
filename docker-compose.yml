@@ -64,7 +64,35 @@ services:
       retries: 3
       start_period: 10s
 
+  backend:
+    image: ghcr.io/2025-b-dss-wasigo/waisgo-backend:secure
+    container_name: wasigo-backend
+    restart: unless-stopped
+    env_file:
+      - .env
+    environment:
+      NODE_ENV: production
+      DB_HOST: postgres
+      REDIS_HOST: redis
+      MINIO_ENDPOINT: minio
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      minio:
+        condition: service_healthy
+    ports:
+      - "127.0.0.1:3000:3000"
+    security_opt:
+      - no-new-privileges:true
+    read_only: true
+    tmpfs:
+      - /tmp
+      - /app/tmp
+
 volumes:
   postgres_data:
   redis_data:
   minio_data:
+  
