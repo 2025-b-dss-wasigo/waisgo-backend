@@ -43,7 +43,7 @@ export const decryptOtp = (payload: string, secret: string): string | null => {
     }
 
     const key = buildKey(secret);
-    const decipher = createDecipheriv('aes-256-gcm', key, iv);
+    const decipher = createDecipheriv('aes-256-gcm', key, iv, { authTagLength: 16 });
     decipher.setAuthTag(tag);
     const decrypted = Buffer.concat([
       decipher.update(encrypted),
