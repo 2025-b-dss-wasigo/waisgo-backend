@@ -32,10 +32,9 @@ ENV NODE_ENV=production
 RUN addgroup -S appgroup && adduser -S appuser -G appgroup
 
 COPY --from=builder /app/dist ./dist
-COPY --from=builder /app/package.json ./package.json
-COPY --from=builder /app/node_modules ./node_modules
+COPY package*.json ./
 
-RUN npm prune --omit=dev
+RUN npm ci --omit=dev --ignore-scripts
 
 USER appuser
 
