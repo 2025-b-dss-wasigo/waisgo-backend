@@ -8,6 +8,7 @@ import { InMemoryRedisService } from './fakes';
 export type UserSeed = {
   email: string;
   password: string;
+  confirmPassword?: string;
   nombre: string;
   apellido: string;
   celular: string;
@@ -21,6 +22,7 @@ export const buildUserSeed = (
   return {
     email: `${prefix}${suffix}@epn.edu.ec`,
     password: 'Segura.123',
+    confirmPassword: 'Segura.123',
     nombre: 'Test',
     apellido: 'User',
     celular: '0999999999',
@@ -34,7 +36,10 @@ export const registerUser = async (
 ): Promise<void> => {
   await request(app.getHttpServer())
     .post('/api/auth/register')
-    .send(seed)
+    .send({
+      ...seed,
+      confirmPassword: seed.confirmPassword ?? seed.password,
+    })
     .expect(201);
 };
 

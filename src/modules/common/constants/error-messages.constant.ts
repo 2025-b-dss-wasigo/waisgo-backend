@@ -19,6 +19,7 @@ export const ErrorMessages = {
     PASSWORD_SAME_AS_OLD: 'La nueva contraseña debe ser diferente a la actual',
     PASSWORD_REQUIREMENTS:
       'La contraseña debe tener 7-20 caracteres, mayúsculas, minúsculas, números y un carácter especial',
+    PASSWORDS_DO_NOT_MATCH: 'Las contraseñas no coinciden',
 
     // Reset password
     RESET_TOKEN_INVALID: 'El enlace es inválido o ha expirado',
@@ -54,6 +55,8 @@ export const ErrorMessages = {
     PROFILE_UPDATED: 'Perfil actualizado correctamente',
     PROFILE_PHOTO_UPDATED: 'Foto de perfil actualizada correctamente',
     PROFILE_NOT_FOUND: 'Perfil no encontrado',
+    EMAIL_CHANGE_LOCKED:
+      'No puedes cambiar el correo una vez que la cuenta está verificada',
   },
 
   // ============ VALIDATION (RN-001) ============
@@ -87,6 +90,8 @@ export const ErrorMessages = {
     VEHICLE_UPDATED: 'Vehículo actualizado correctamente',
     VEHICLE_DISABLED: 'Vehículo desactivado correctamente',
     VEHICLE_REACTIVATED: 'Vehículo reactivado correctamente',
+    VEHICLE_REQUIRED:
+      'Debes tener un vehículo activo para solicitar ser conductor',
     VEHICLE_ALREADY_ACTIVE: 'El vehículo ya está activo',
     VEHICLE_REACTIVATION_EXPIRED:
       'No se puede reactivar el vehículo. Han pasado más de 30 días desde su desactivación',
@@ -258,6 +263,8 @@ export const ErrorMessages = {
     TOKEN_REVOKED: 'Token revocado',
     ROLE_NOT_IDENTIFIED: 'Rol no identificado',
     ACCESS_DENIED_ROLE: 'Acceso denegado para su rol',
+    ALIAS_GENERATION_FAILED:
+      'No se pudo generar un alias único. Intenta nuevamente en unos minutos',
     SESSION_EXPIRED: 'Tu sesión ha expirado. Inicia sesión nuevamente',
   },
 

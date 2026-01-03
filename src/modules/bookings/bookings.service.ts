@@ -26,7 +26,11 @@ import { AuditService } from '../audit/audit.service';
 import { AuditAction, AuditResult } from '../audit/Enums';
 import { ErrorMessages } from '../common/constants/error-messages.constant';
 import type { AuthContext } from '../common/types';
-import { buildIdWhere, generatePublicId } from '../common/utils/public-id.util';
+import {
+  buildIdWhere,
+  generatePublicId,
+  isUuid,
+} from '../common/utils/public-id.util';
 import { planStopInsertion } from '../common/utils/route-stop.util';
 import { getDepartureDate } from '../common/utils/route-time.util';
 import {
@@ -45,6 +49,7 @@ type PickupDetails = {
 @Injectable()
 export class BookingsService {
   private readonly logger = new Logger(BookingsService.name);
+  private readonly OTP_VISIBLE_WINDOW_MS = 2 * 60 * 60 * 1000;
 
   constructor(
     @InjectRepository(Booking)
@@ -137,12 +142,47 @@ export class BookingsService {
     if (!booking?.otp) {
       return;
     }
-    const secret = this.getOtpSecret();
-    if (!secret) {
+
+    if (!this.isOtpVisible(booking)) {
+      this.hideOtp(booking);
       return;
     }
+
+    const secret = this.getOtpSecret();
+
+    if (!secret) {
+      this.hideOtp(booking);
+      return;
+    }
+
     const decrypted = decryptOtp(booking.otp, secret);
     booking.otp = decrypted ?? booking.otp;
+  }
+
+  private isOtpVisible(booking: Booking): boolean {
+    const allowedStates = [
+      EstadoReservaEnum.CONFIRMADA,
+      EstadoReservaEnum.COMPLETADA,
+    ];
+
+    if (!allowedStates.includes(booking.estado)) {
+      return false;
+    }
+
+    const departure = getDepartureDate(booking.route);
+
+    if (!departure) {
+      return true;
+    }
+
+    const expiresAt = departure.getTime() + this.OTP_VISIBLE_WINDOW_MS;
+    return Date.now() <= expiresAt;
+  }
+
+  private hideOtp(booking: Booking): void {
+    const subject = booking as Partial<Pick<Booking, 'otp'>> &
+      Omit<Booking, 'otp'>;
+    delete subject.otp;
   }
 
   private isOtpMatch(storedOtp: string, providedOtp: string): boolean {
@@ -351,7 +391,12 @@ export class BookingsService {
       this.createBookingTransaction(manager, passengerId, dto, pickup),
     );
 
-    const { bookingId, bookingPublicId, otp, routeId: routeInternalId } = result;
+    const {
+      bookingId,
+      bookingPublicId,
+      otp,
+      routeId: routeInternalId,
+    } = result;
 
     await this.auditService.logEvent({
       action: AuditAction.BOOKING_CREATED,
@@ -428,17 +473,25 @@ export class BookingsService {
     passengerId: string,
     bookingId: string,
   ): Promise<{ message: string; data?: Booking }> {
-    const booking = await this.bookingRepository
+    const query = this.bookingRepository
       .createQueryBuilder('booking')
       .leftJoinAndSelect('booking.route', 'route')
       .leftJoinAndSelect('route.stops', 'stops')
       .leftJoinAndSelect('route.driver', 'driver')
       .leftJoinAndSelect('driver.user', 'driverUser')
       .leftJoinAndSelect('driverUser.profile', 'driverProfile')
-      .addSelect('booking.otp')
-      .where('booking.publicId = :bookingId', { bookingId })
-      .orWhere('booking.id = :bookingId', { bookingId })
-      .getOne();
+      .addSelect('booking.otp');
+
+    // Use UUID lookup only when identifier is a valid UUID to avoid type mismatch
+    if (isUuid(bookingId)) {
+      query.where('booking.id = :bookingId OR booking.publicId = :bookingId', {
+        bookingId,
+      });
+    } else {
+      query.where('booking.publicId = :bookingId', { bookingId });
+    }
+
+    const booking = await query.getOne();
 
     if (booking?.passengerId !== passengerId) {
       throw new NotFoundException(ErrorMessages.BOOKINGS.BOOKING_NOT_FOUND);
@@ -452,6 +505,53 @@ export class BookingsService {
       message: ErrorMessages.BOOKINGS.BOOKING_DETAIL,
       data: booking,
     };
+  }
+
+  /**
+   * Verifica si una reserva es elegible para reembolso (>1h antes de salida)
+   */
+  private isEligibleForRefund(route: Route): boolean {
+    const departure = getDepartureDate(route);
+    if (!departure) return true;
+    const diffMs = departure.getTime() - Date.now();
+    return diffMs >= 60 * 60 * 1000;
+  }
+
+  /**
+   * Procesa el reembolso de un pago si es elegible
+   */
+  private async processRefundIfEligible(
+    payment: Payment | null,
+    passengerId: string,
+    eligibleForRefund: boolean,
+    context?: AuthContext,
+  ): Promise<void> {
+    if (!payment) return;
+
+    if (payment.status === EstadoPagoEnum.PAID) {
+      if (eligibleForRefund) {
+        try {
+          await this.paymentsService.reversePayment(
+            payment.id,
+            passengerId,
+            context,
+          );
+        } catch (error) {
+          payment.status = EstadoPagoEnum.FAILED;
+          payment.failureReason =
+            error instanceof Error ? error.message : 'Refund failed';
+          await this.paymentRepository.save(payment);
+        }
+      } else {
+        payment.failureReason = 'Late cancellation - no refund';
+        await this.paymentRepository.save(payment);
+      }
+    } else if (payment.status === EstadoPagoEnum.PENDING) {
+      payment.status = EstadoPagoEnum.FAILED;
+      payment.failureReason = 'Booking cancelled';
+      payment.reversedAt = new Date();
+      await this.paymentRepository.save(payment);
+    }
   }
 
   /**
@@ -475,15 +575,7 @@ export class BookingsService {
       throw new BadRequestException(ErrorMessages.BOOKINGS.BOOKING_NOT_ACTIVE);
     }
 
-    const departure = getDepartureDate(booking.route);
-    if (departure) {
-      const diffMs = departure.getTime() - Date.now();
-      if (diffMs < 60 * 60 * 1000) {
-        throw new BadRequestException(
-          ErrorMessages.BOOKINGS.CANCELLATION_TOO_LATE,
-        );
-      }
-    }
+    const eligibleForRefund = this.isEligibleForRefund(booking.route);
 
     await this.bookingRepository.manager.transaction(async (manager) => {
       const bookingRepo = manager.getRepository(Booking);
@@ -512,25 +604,12 @@ export class BookingsService {
       where: { bookingId: booking.id },
     });
 
-    if (payment && payment.status === EstadoPagoEnum.PAID) {
-      try {
-        await this.paymentsService.reversePayment(
-          payment.id,
-          passengerId,
-          context,
-        );
-      } catch (error) {
-        payment.status = EstadoPagoEnum.FAILED;
-        payment.failureReason =
-          error instanceof Error ? error.message : 'Refund failed';
-        await this.paymentRepository.save(payment);
-      }
-    } else if (payment && payment.status === EstadoPagoEnum.PENDING) {
-      payment.status = EstadoPagoEnum.FAILED;
-      payment.failureReason = 'Booking cancelled';
-      payment.reversedAt = new Date();
-      await this.paymentRepository.save(payment);
-    }
+    await this.processRefundIfEligible(
+      payment,
+      passengerId,
+      eligibleForRefund,
+      context,
+    );
 
     await this.auditService.logEvent({
       action: AuditAction.BOOKING_CANCELLED_PASSENGER,
@@ -544,7 +623,9 @@ export class BookingsService {
     this.logger.log(`Booking cancelled: ${booking.id}`);
 
     return {
-      message: ErrorMessages.BOOKINGS.CANCELLATION_SUCCESS,
+      message: eligibleForRefund
+        ? ErrorMessages.BOOKINGS.CANCELLATION_SUCCESS
+        : ErrorMessages.BOOKINGS.NO_REFUND,
     };
   }
 
@@ -730,13 +811,26 @@ export class BookingsService {
   ): Promise<{ message: string }> {
     const driver = await this.getApprovedDriver(driverUserId);
 
-    const booking = await this.bookingRepository
+    const idPredicates = buildIdWhere<Booking>(bookingId);
+    const bookingQuery = this.bookingRepository
       .createQueryBuilder('booking')
       .leftJoinAndSelect('booking.route', 'route')
-      .addSelect('booking.otp')
-      .where('booking.publicId = :bookingId', { bookingId })
-      .orWhere('booking.id = :bookingId', { bookingId })
-      .getOne();
+      .addSelect('booking.otp');
+
+    idPredicates.forEach((predicate, index) => {
+      const column = Object.keys(predicate)[0];
+      const paramKey = `${column}${index}`;
+      const params = {
+        [paramKey]: predicate[column as keyof typeof predicate],
+      };
+      if (index === 0) {
+        bookingQuery.where(`booking.${column} = :${paramKey}`, params);
+      } else {
+        bookingQuery.orWhere(`booking.${column} = :${paramKey}`, params);
+      }
+    });
+
+    const booking = await bookingQuery.getOne();
 
     if (!booking) {
       throw new NotFoundException(ErrorMessages.BOOKINGS.BOOKING_NOT_FOUND);

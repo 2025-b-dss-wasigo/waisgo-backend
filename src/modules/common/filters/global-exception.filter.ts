@@ -281,6 +281,11 @@ export class GlobalExceptionFilter implements ExceptionFilter {
     const forwardedFor = request.headers['x-forwarded-for'];
     const forwardedIp =
       typeof forwardedFor === 'string' ? forwardedFor.split(',')[0].trim() : '';
-    return request.ip || request.socket.remoteAddress || forwardedIp || 'unknown';
+    return (
+      forwardedIp ||
+      request.ip ||
+      request.socket?.remoteAddress ||
+      'unknown'
+    );
   }
 }

@@ -52,7 +52,7 @@ export const envSchema = Joi.object({
   THROTTLE_TTL: Joi.number().min(1000).default(60000),
   THROTTLE_LIMIT: Joi.number().min(1).default(100),
 
-  CLEANUP_UNVERIFIED_DAYS: Joi.number().min(1).max(30).default(7),
+  CLEANUP_UNVERIFIED_DAYS: Joi.number().min(1).max(30).default(3),
 
   // OTP Configuration
   OTP_EXPIRATION_MINUTES: Joi.number().min(1).max(60).default(15),

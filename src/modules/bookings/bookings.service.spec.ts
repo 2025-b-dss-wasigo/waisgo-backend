@@ -520,22 +520,79 @@ describe('BookingsService', () => {
     ).rejects.toThrow(ErrorMessages.VALIDATION.INVALID_FORMAT('estado'));
   });
 
-  it('rejects cancellation when too late', async () => {
+  it('hides OTP when the departure window has expired', async () => {
+    const departureSpy = jest
+      .spyOn(routeTimeUtil, 'getDepartureDate')
+      .mockReturnValue(new Date(Date.now() - 3 * 60 * 60 * 1000));
+
+    const query = {
+      leftJoinAndSelect: jest.fn().mockReturnThis(),
+      addSelect: jest.fn().mockReturnThis(),
+      where: jest.fn().mockReturnThis(),
+      orderBy: jest.fn().mockReturnThis(),
+      andWhere: jest.fn().mockReturnThis(),
+      getMany: jest.fn().mockResolvedValue([
+        {
+          id: 'booking-id',
+          estado: EstadoReservaEnum.COMPLETADA,
+          otp: '123456',
+          route: { fecha: '2025-01-01', horaSalida: '10:00' },
+        } as Booking,
+      ]),
+    };
+
+    bookingRepository.createQueryBuilder.mockReturnValue(query);
+
+    const result = await service.getMyBookings('passenger-id');
+
+    expect(result.data?.[0].otp).toBeUndefined();
+    departureSpy.mockRestore();
+  });
+
+  it('returns no refund when cancellation occurs within 1 hour of departure', async () => {
     bookingRepository.findOne.mockResolvedValue({
       id: 'booking-id',
       passengerId: 'passenger-id',
       estado: EstadoReservaEnum.CONFIRMADA,
       routeId: 'route-id',
-      route: { fecha: '2025-01-01', horaSalida: '10:00' },
+      route: { fecha: '2030-01-15', horaSalida: '10:00' },
     });
 
-    jest
+    const departureSpy = jest
       .spyOn(routeTimeUtil, 'getDepartureDate')
       .mockReturnValue(new Date(Date.now() + 30 * 60 * 1000));
 
-    await expect(
-      service.cancelBooking('passenger-id', 'BKG_123', context),
-    ).rejects.toThrow(ErrorMessages.BOOKINGS.CANCELLATION_TOO_LATE);
+    const bookingRepo = { update: jest.fn() };
+    const routeRepo = {
+      findOne: jest.fn().mockResolvedValue({
+        id: 'route-id',
+        asientosDisponibles: 1,
+        asientosTotales: 2,
+      }),
+      save: jest.fn(),
+    };
+
+    bookingRepository.manager.transaction.mockImplementation(async (work) =>
+      work({
+        getRepository: jest.fn((entity) => {
+          if (entity === Booking) return bookingRepo;
+          if (entity === Route) return routeRepo;
+          return null;
+        }),
+      } as never),
+    );
+
+    const response = await service.cancelBooking(
+      'passenger-id',
+      'BKG_123',
+      context,
+    );
+
+    expect(response).toEqual({
+      message: ErrorMessages.BOOKINGS.NO_REFUND,
+    });
+
+    departureSpy.mockRestore();
   });
 
   it('cancels booking and marks pending payment failed', async () => {

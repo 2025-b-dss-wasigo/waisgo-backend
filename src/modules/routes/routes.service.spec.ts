@@ -6,6 +6,7 @@ import { ErrorMessages } from '../common/constants/error-messages.constant';
 import type { AuthContext } from '../common/types';
 import * as publicIdUtil from '../common/utils/public-id.util';
 import * as routeStopUtil from '../common/utils/route-stop.util';
+import * as routeTimeUtil from '../common/utils/route-time.util';
 import { EstadoPagoEnum } from '../payments/Enums';
 import { CampusOrigenEnum } from './Enums/campus-origen.enum';
 
@@ -30,6 +31,7 @@ describe('RoutesService', () => {
   };
   const profileRepository = {
     findOne: jest.fn(),
+    save: jest.fn(),
   };
   const bookingRepository = {
     count: jest.fn(),
@@ -54,6 +56,7 @@ describe('RoutesService', () => {
 
   beforeEach(() => {
     jest.clearAllMocks();
+    profileRepository.save.mockResolvedValue({});
     service = new RoutesService(
       routeRepository as never,
       routeStopRepository as never,
@@ -281,7 +284,18 @@ describe('RoutesService', () => {
     routeRepository.findOne.mockResolvedValue({
       id: 'route-id',
       estado: EstadoRutaEnum.ACTIVA,
+      fecha: '2030-01-01',
+      horaSalida: '10:00',
     });
+
+    profileRepository.findOne.mockResolvedValue({
+      ratingPromedio: 5,
+      isBloqueadoPorRating: false,
+    });
+
+    const departureSpy = jest
+      .spyOn(routeTimeUtil, 'getDepartureDate')
+      .mockReturnValue(new Date(Date.now() + 30 * 60 * 1000));
 
     const payments = [
       { id: 'pay-1', status: EstadoPagoEnum.PAID, failureReason: null },
@@ -305,6 +319,11 @@ describe('RoutesService', () => {
     expect(payments[0].failureReason).toBe('Refund failed after route cancel');
     expect(payments[1].status).toBe(EstadoPagoEnum.FAILED);
     expect(payments[1].failureReason).toBe('Route cancelled');
+    expect(profileRepository.save).toHaveBeenCalledWith(
+      expect.objectContaining({ ratingPromedio: 4 }),
+    );
+
+    departureSpy.mockRestore();
   });
 
   it('finalizeRoute rejects when there are pending bookings', async () => {

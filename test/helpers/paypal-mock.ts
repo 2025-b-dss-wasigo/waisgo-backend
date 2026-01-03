@@ -33,7 +33,13 @@ export const mockPaypalFetch = (): jest.Mock => {
         purchase_units: [
           {
             payments: {
-              captures: [{ id: 'CAPTURE123', status: 'COMPLETED' }],
+              captures: [
+                {
+                  id: 'CAPTURE123',
+                  status: 'COMPLETED',
+                  amount: { value: '3.50', currency_code: 'USD' },
+                },
+              ],
             },
           },
         ],
@@ -64,12 +70,12 @@ export const mockPaypalFetch = (): jest.Mock => {
     return buildErrorResponse('Unknown PayPal request', 404);
   });
 
-  global.fetch = mock as never;
+  globalThis.fetch = mock as never;
   return mock;
 };
 
 export const restoreFetch = (original?: typeof fetch): void => {
   if (original) {
-    global.fetch = original;
+    globalThis.fetch = original;
   }
 };

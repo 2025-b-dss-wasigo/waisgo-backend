@@ -36,6 +36,7 @@ import { getDepartureDate } from '../common/utils/route-time.util';
 @Injectable()
 export class RoutesService {
   private readonly logger = new Logger(RoutesService.name);
+  private readonly LATE_CANCEL_WINDOW_MS = 2 * 60 * 60 * 1000;
 
   constructor(
     @InjectRepository(Route)
@@ -266,7 +267,7 @@ export class RoutesService {
 
   async getAvailableRoutes(
     dto: SearchRoutesDto,
-  ): Promise<{ message: string; data?: Route[] }> {
+  ): Promise<{ message: string; data?: ReturnType<typeof this.mapRouteForListing>[] }> {
     const radiusKm = dto.radiusKm || 1;
 
     const whereClause: Record<string, unknown> = {
@@ -304,12 +305,48 @@ export class RoutesService {
           : null;
       })
       .filter((item): item is { route: Route; distance: number } => item !== null)
-      .sort((a, b) => a.distance - b.distance)
-      .map((item) => item.route);
+      .sort((a, b) => a.distance - b.distance);
+
+    const data = filtered.map((item) =>
+      this.mapRouteForListing(item.route, item.distance),
+    );
 
     return {
       message: ErrorMessages.ROUTES.ROUTES_LIST_AVAILABLE,
-      data: filtered,
+      data,
+    };
+  }
+
+  private mapRouteForListing(route: Route, distance: number) {
+    const driverAlias =
+      route.driver?.user?.alias ||
+      `${route.driver?.user?.profile?.nombre ?? ''} ${route.driver?.user?.profile?.apellido ?? ''}`.trim() ||
+      route.driver?.publicId;
+    const rating =
+      route.driver?.user?.profile?.ratingPromedio !== undefined
+        ? Number(route.driver?.user?.profile?.ratingPromedio)
+        : null;
+
+    return {
+      id: route.id,
+      publicId: route.publicId,
+      origen: route.origen,
+      fecha: route.fecha,
+      horaSalida: route.horaSalida,
+      destinoBase: route.destinoBase,
+      asientosDisponibles: route.asientosDisponibles,
+      precioPasajero: Number(route.precioPasajero),
+      mensaje: route.mensaje,
+      distanceKm: Number(distance.toFixed(3)),
+      driver: {
+        alias: driverAlias,
+        rating,
+      },
+      stops:
+        route.stops?.map((stop) => ({
+          lat: Number(stop.lat),
+          lng: Number(stop.lng),
+        })) ?? [],
     };
   }
 
@@ -346,8 +383,6 @@ export class RoutesService {
     if (!route) {
       throw new NotFoundException(ErrorMessages.ROUTES.ROUTE_NOT_FOUND);
     }
-
-    await this.ensureRouteAccess(route, userId);
 
     const stops = await this.routeStopRepository.find({
       where: { routeId: route.id },
@@ -440,6 +475,11 @@ export class RoutesService {
       throw new BadRequestException(ErrorMessages.ROUTES.ROUTE_NOT_ACTIVE);
     }
 
+    const isLateCancellation = this.isLateCancellation(route);
+    const penaltyApplied =
+      isLateCancellation &&
+      (await this.applyLateCancellationPenalty(driver.userId));
+
     route.estado = EstadoRutaEnum.CANCELADA;
     route.mensaje = ErrorMessages.ROUTES.ROUTE_CANCELLED;
     await this.routeRepository.save(route);
@@ -481,7 +521,7 @@ export class RoutesService {
       result: AuditResult.SUCCESS,
       ipAddress: context?.ip,
       userAgent: context?.userAgent,
-      metadata: { routeId: route.id },
+      metadata: { routeId: route.id, penaltyApplied },
     });
 
     return {
@@ -537,5 +577,42 @@ export class RoutesService {
     return {
       message: ErrorMessages.ROUTES.ROUTE_FINALIZED,
     };
+  }
+
+  private isLateCancellation(route: Route): boolean {
+    const departure = getDepartureDate(route);
+    if (!departure) {
+      return false;
+    }
+
+    return departure.getTime() - Date.now() <= this.LATE_CANCEL_WINDOW_MS;
+  }
+
+  private async applyLateCancellationPenalty(
+    userId: string,
+  ): Promise<boolean> {
+    const profile = await this.profileRepository.findOne({
+      where: { userId },
+    });
+
+    if (!profile) {
+      return false;
+    }
+
+    const currentRating = Number(profile.ratingPromedio ?? 5);
+    const nextRating = Number(
+      Math.max(currentRating - 1, 1).toFixed(2),
+    );
+
+    profile.ratingPromedio = nextRating;
+    profile.isBloqueadoPorRating = nextRating < 3;
+
+    await this.profileRepository.save(profile);
+
+    this.logger.warn(
+      `Driver ${userId} rating penalized to ${nextRating} after late cancellation`,
+    );
+
+    return true;
   }
 }

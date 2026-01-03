@@ -40,7 +40,9 @@ jest.mock('@nestjs/swagger', () => ({
 describe('bootstrap', () => {
   it('configures and starts the app', async () => {
     const configService = {
-      get: jest.fn((key: string) => (key === 'PORT' ? 3000 : undefined)),
+      get: jest.fn((key: string, fallback?: unknown) =>
+        key === 'PORT' ? 3000 : fallback,
+      ),
     };
     const appMock = {
       setGlobalPrefix: jest.fn(),

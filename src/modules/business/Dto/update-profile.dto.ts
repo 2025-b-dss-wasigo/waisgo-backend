@@ -1,4 +1,11 @@
-import { IsOptional, IsString, Length, Matches } from 'class-validator';
+import {
+  IsOptional,
+  IsString,
+  Length,
+  Matches,
+  IsEmail,
+  MaxLength,
+} from 'class-validator';
 import { Transform } from 'class-transformer';
 import { ApiPropertyOptional } from '@nestjs/swagger';
 import { ErrorMessages } from '../../common/constants/error-messages.constant';
@@ -51,4 +58,20 @@ export class UpdateProfileDto {
     message: ErrorMessages.VALIDATION.PHONE_FORMAT,
   })
   celular?: string;
+
+  @ApiPropertyOptional({
+    description: 'Correo institucional (solo se puede cambiar antes de verificar)',
+    example: 'nuevo.usuario@epn.edu.ec',
+    maxLength: 30,
+  })
+  @IsOptional()
+  @IsEmail({}, { message: ErrorMessages.VALIDATION.INVALID_FORMAT('email') })
+  @MaxLength(30, { message: ErrorMessages.VALIDATION.EMAIL_MAX_LENGTH })
+  @Matches(/^[\w.+-]+@epn\.edu\.ec$/, {
+    message: ErrorMessages.AUTH.INVALID_EMAIL_DOMAIN,
+  })
+  @Transform(({ value }: { value: unknown }) =>
+    typeof value === 'string' ? value.toLowerCase().trim() : value,
+  )
+  email?: string;
 }

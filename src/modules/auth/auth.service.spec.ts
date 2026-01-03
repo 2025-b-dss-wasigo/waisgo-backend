@@ -70,6 +70,7 @@ describe('AuthService', () => {
   const registerDto = {
     email: 'test@epn.edu.ec',
     password: 'Passw0rd!',
+    confirmPassword: 'Passw0rd!',
     nombre: 'Juan',
     apellido: 'Perez',
     celular: '0999999999',

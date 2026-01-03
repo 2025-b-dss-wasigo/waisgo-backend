@@ -19,9 +19,13 @@ describe('VehicleService', () => {
   };
   const driverRepo = {
     findOne: jest.fn(),
+    save: jest.fn(),
   };
   const auditService = {
     logEvent: jest.fn(),
+  };
+  const businessService = {
+    updateAlias: jest.fn(),
   };
 
   const context: AuthContext = { ip: '127.0.0.1', userAgent: 'jest' };
@@ -30,10 +34,13 @@ describe('VehicleService', () => {
 
   beforeEach(() => {
     jest.clearAllMocks();
+    driverRepo.save.mockResolvedValue({});
+    businessService.updateAlias.mockResolvedValue(undefined);
     service = new VehicleService(
       vehicleRepo as never,
       driverRepo as never,
       auditService as never,
+      businessService as never,
     );
   });
 

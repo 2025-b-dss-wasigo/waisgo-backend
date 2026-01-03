@@ -20,6 +20,7 @@ import { Rating } from '../ratings/Models/rating.entity';
 import { AuditModule } from '../audit/audit.module';
 import { MailModule } from '../mail/mail.module';
 import { StorageModule } from '../storage/storage.module';
+import { BusinessModule } from '../business/business.module';
 
 @Module({
   imports: [
@@ -41,6 +42,7 @@ import { StorageModule } from '../storage/storage.module';
     AuditModule,
     MailModule,
     StorageModule,
+    BusinessModule,
   ],
   controllers: [AdminDriversController, AdminSeedController],
   providers: [AdminService, AdminSeedService],

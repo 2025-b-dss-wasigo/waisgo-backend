@@ -162,7 +162,7 @@ describe('BusinessService', () => {
     businessUserRepo.findOne.mockResolvedValue(null);
 
     await expect(service.getMyProfile('user-id')).rejects.toThrow(
-      ErrorMessages.USER.NOT_FOUND,
+      ErrorMessages.USER.PROFILE_NOT_FOUND,
     );
   });
 

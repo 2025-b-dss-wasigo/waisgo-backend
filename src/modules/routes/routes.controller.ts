@@ -90,7 +90,7 @@ export class RoutesController {
    * - Usa Haversine para calcular distancia (NO Google Maps API)
    * - Retorna rutas con stops dentro de 1km del pasajero
    */
-  @Roles(RolUsuarioEnum.PASAJERO)
+  @Roles(RolUsuarioEnum.USER, RolUsuarioEnum.PASAJERO)
   @Get('available')
   @ApiOperation({ summary: 'Buscar rutas disponibles cerca de mi ubicación' })
   @ApiResponse({ status: 200, description: 'Listado de rutas cercanas.' })

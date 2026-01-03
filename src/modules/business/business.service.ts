@@ -1,5 +1,12 @@
 import { StorageService } from './../storage/storage.service';
-import { Injectable, NotFoundException, Logger, BadRequestException } from '@nestjs/common';
+import {
+  Injectable,
+  NotFoundException,
+  Logger,
+  BadRequestException,
+  ConflictException,
+  InternalServerErrorException,
+} from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { BusinessUser } from './Models/business-user.entity';
 import { UserProfile } from './Models/user-profile.entity';
@@ -15,6 +22,9 @@ import { AuthUser } from '../auth/Models/auth-user.entity';
 import { RedisService } from 'src/redis/redis.service';
 import { parseDurationToSeconds } from '../common/utils/duration.util';
 import { hasValidFileSignature } from '../common/utils/file-validation.util';
+import { EstadoVerificacionEnum } from '../auth/Enum';
+
+type AliasPrefix = 'Pasajero' | 'Conductor';
 
 @Injectable()
 export class BusinessService {
@@ -27,6 +37,7 @@ export class BusinessService {
     'image/jpg',
     'image/png',
   ];
+  private readonly ALIAS_ATTEMPTS = 10;
 
   constructor(
     @InjectRepository(BusinessUser)
@@ -41,9 +52,48 @@ export class BusinessService {
     private readonly redisService: RedisService,
   ) {}
 
-  private generateAlias(): string {
-    const randomPart = Math.random().toString(16).slice(2, 8).toUpperCase();
-    return `Pasajero${randomPart}`;
+  private randomAliasSuffix(): string {
+    const suffix = Math.floor(Math.random() * 9000) + 1000;
+    return suffix.toString();
+  }
+
+  private async generateAliasWithPrefix(
+    repo: Repository<BusinessUser>,
+    prefix: AliasPrefix,
+  ): Promise<string> {
+    for (let attempt = 0; attempt < this.ALIAS_ATTEMPTS; attempt++) {
+      const alias = `${prefix}${this.randomAliasSuffix()}`;
+      const existing = await repo.findOne({ where: { alias } });
+      if (!existing) {
+        return alias;
+      }
+    }
+    throw new InternalServerErrorException(
+      ErrorMessages.SYSTEM.ALIAS_GENERATION_FAILED,
+    );
+  }
+
+  async updateAlias(userId: string, prefix: AliasPrefix): Promise<void> {
+    const user = await this.businessUserRepo.findOne({
+      where: { id: userId, isDeleted: false },
+    });
+
+    if (!user) {
+      this.logger.warn(
+        `Business user not found when updating alias: ${userId}`,
+      );
+      return;
+    }
+
+    if (user.alias?.startsWith(prefix)) {
+      return;
+    }
+
+    user.alias = await this.generateAliasWithPrefix(
+      this.businessUserRepo,
+      prefix,
+    );
+    await this.businessUserRepo.save(user);
   }
 
   async createFromAuth(
@@ -56,7 +106,10 @@ export class BusinessService {
     },
   ): Promise<{ publicId: string; alias: string }> {
     const publicId = await generatePublicId(this.businessUserRepo, 'USR');
-    const alias = this.generateAlias();
+    const alias = await this.generateAliasWithPrefix(
+      this.businessUserRepo,
+      'Pasajero',
+    );
     const businessUser = this.businessUserRepo.create({
       id: userId,
       publicId,
@@ -95,7 +148,7 @@ export class BusinessService {
   ): Promise<{ publicId: string; alias: string }> {
     const businessRepo = manager.getRepository(BusinessUser);
     const publicId = await generatePublicId(businessRepo, 'USR');
-    const alias = this.generateAlias();
+    const alias = await this.generateAliasWithPrefix(businessRepo, 'Pasajero');
     const businessUser = manager.create(BusinessUser, {
       id: userId,
       publicId,
@@ -119,6 +172,51 @@ export class BusinessService {
     return { publicId, alias };
   }
 
+  /**
+   * Valida y actualiza el email si fue modificado
+   */
+  private async updateEmailIfChanged(
+    userId: string,
+    newEmail: string,
+  ): Promise<{ businessUser: BusinessUser; authUser: AuthUser }> {
+    const normalizedEmail = newEmail.toLowerCase().trim();
+
+    const businessUser = await this.businessUserRepo.findOne({
+      where: { id: userId, isDeleted: false },
+    });
+
+    if (!businessUser) {
+      throw new NotFoundException(ErrorMessages.USER.NOT_FOUND);
+    }
+
+    const authUser = await this.authUserRepo.findOne({
+      where: { id: userId },
+    });
+
+    if (!authUser) {
+      throw new NotFoundException(ErrorMessages.USER.NOT_FOUND);
+    }
+
+    if (authUser.estadoVerificacion === EstadoVerificacionEnum.VERIFICADO) {
+      throw new BadRequestException(ErrorMessages.USER.EMAIL_CHANGE_LOCKED);
+    }
+
+    if (businessUser.email.toLowerCase() !== normalizedEmail) {
+      const existingAuth = await this.authUserRepo.findOne({
+        where: { email: normalizedEmail },
+      });
+
+      if (existingAuth && existingAuth.id !== userId) {
+        throw new ConflictException(ErrorMessages.AUTH.EMAIL_ALREADY_EXISTS);
+      }
+
+      businessUser.email = normalizedEmail;
+      authUser.email = normalizedEmail;
+    }
+
+    return { businessUser, authUser };
+  }
+
   async updateProfile(
     userId: string,
     dto: UpdateProfileDto,
@@ -132,7 +230,7 @@ export class BusinessService {
       throw new NotFoundException(ErrorMessages.USER.PROFILE_NOT_FOUND);
     }
 
-    // Solo actualizar campos que están presentes en el DTO
+    // Actualizar campos básicos del perfil
     if (dto.nombre !== undefined) {
       profile.nombre = dto.nombre;
     }
@@ -144,6 +242,16 @@ export class BusinessService {
     }
 
     await this.profileRepo.save(profile);
+
+    // Manejar cambio de email si está presente
+    if (dto.email !== undefined) {
+      const { businessUser, authUser } = await this.updateEmailIfChanged(
+        userId,
+        dto.email,
+      );
+      await this.authUserRepo.save(authUser);
+      await this.businessUserRepo.save(businessUser);
+    }
 
     this.logger.log(`Profile updated for user: ${userId}`);
 
@@ -235,7 +343,7 @@ export class BusinessService {
     });
 
     if (!user) {
-      throw new NotFoundException(ErrorMessages.USER.NOT_FOUND);
+      throw new NotFoundException(ErrorMessages.USER.PROFILE_NOT_FOUND);
     }
 
     if (!user.profile) {

@@ -68,7 +68,11 @@ export class BusinessController {
     return await this.businessService.getMyProfile(safeUserId);
   }
 
-  @Roles(RolUsuarioEnum.PASAJERO)
+  @Roles(
+    RolUsuarioEnum.USER,
+    RolUsuarioEnum.PASAJERO,
+    RolUsuarioEnum.CONDUCTOR,
+  )
   @Patch('profile')
   @HttpCode(HttpStatus.OK)
   @ApiBearerAuth('access-token')
@@ -102,7 +106,7 @@ export class BusinessController {
     );
   }
 
-  @Roles(RolUsuarioEnum.PASAJERO)
+  @Roles(RolUsuarioEnum.PASAJERO, RolUsuarioEnum.CONDUCTOR)
   @Patch('profile/photo')
   @HttpCode(HttpStatus.OK)
   @ApiBearerAuth('access-token')

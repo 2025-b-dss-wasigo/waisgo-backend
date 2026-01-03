@@ -83,7 +83,7 @@ export class AuthService {
   }
 
   async register(dto: RegisterUserDto, context?: AuthContext) {
-    const { password, nombre, apellido, celular, email } = dto;
+    const { password, confirmPassword, nombre, apellido, celular, email } = dto;
     const normalizedEmail = email.toLowerCase().trim();
 
     const existingUser = await this.authUserRepo.findOne({
@@ -99,6 +99,10 @@ export class AuthService {
     await queryRunner.startTransaction();
 
     try {
+      if (password !== confirmPassword) {
+        throw new BadRequestException(ErrorMessages.AUTH.PASSWORDS_DO_NOT_MATCH);
+      }
+
       const userId = randomUUID();
 
       const authUser = this.authUserRepo.create({

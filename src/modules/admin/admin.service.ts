@@ -10,6 +10,7 @@ import { ConfigService } from '@nestjs/config';
 
 import { Driver } from '../drivers/Models/driver.entity';
 import { DriverDocument } from '../drivers/Models/driver-document.entity';
+import { Vehicle } from '../drivers/Models/vehicle.entity';
 import { AuthUser } from '../auth/Models/auth-user.entity';
 import { EstadoConductorEnum } from '../drivers/Enums/estado-conductor.enum';
 import { EstadoDocumentoEnum } from '../drivers/Enums/estado-documento.enum';
@@ -18,6 +19,7 @@ import { AuditService } from '../audit/audit.service';
 import { AuditAction, AuditResult } from '../audit/Enums';
 import { MailService } from '../mail/mail.service';
 import { StorageService } from '../storage/storage.service';
+import { BusinessService } from '../business/business.service';
 import type { AuthContext } from '../common/types';
 import { ErrorMessages } from '../common/constants/error-messages.constant';
 import { buildIdWhere } from '../common/utils/public-id.util';
@@ -65,6 +67,8 @@ export class AdminService {
     private readonly driverRepo: Repository<Driver>,
     @InjectRepository(DriverDocument)
     private readonly documentRepo: Repository<DriverDocument>,
+    @InjectRepository(Vehicle)
+    private readonly vehicleRepo: Repository<Vehicle>,
     @InjectRepository(AuthUser)
     private readonly authUserRepo: Repository<AuthUser>,
     private readonly dataSource: DataSource,
@@ -73,6 +77,7 @@ export class AdminService {
     private readonly storageService: StorageService,
     private readonly configService: ConfigService,
     private readonly redisService: RedisService,
+    private readonly businessService: BusinessService,
   ) {}
 
   /**
@@ -249,6 +254,8 @@ export class AdminService {
 
       await queryRunner.commitTransaction();
 
+      await this.businessService.updateAlias(driver.userId, 'Conductor');
+
       await this.redisService.revokeUserSessions(
         driver.userId,
         this.getSessionRevokeTtlSeconds(),
@@ -349,7 +356,11 @@ export class AdminService {
       throw new NotFoundException(ErrorMessages.DRIVER.DRIVER_NOT_FOUND);
     }
 
-    if (driver.estado !== EstadoConductorEnum.APROBADO) {
+    const suspendableStates = [
+      EstadoConductorEnum.APROBADO,
+      EstadoConductorEnum.PENDIENTE,
+    ];
+    if (!suspendableStates.includes(driver.estado)) {
       throw new BadRequestException(
         ErrorMessages.ADMIN.ONLY_APPROVED_CAN_SUSPEND,
       );
@@ -357,6 +368,8 @@ export class AdminService {
 
     driver.estado = EstadoConductorEnum.SUSPENDIDO;
     await this.driverRepo.save(driver);
+
+    await this.businessService.updateAlias(driver.userId, 'Pasajero');
 
     await this.redisService.revokeUserSessions(
       driver.userId,

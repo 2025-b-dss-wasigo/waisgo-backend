@@ -17,10 +17,8 @@ import { AuditService } from '../audit/audit.service';
 import { AuditAction, AuditResult } from '../audit/Enums';
 import type { AuthContext } from '../common/types';
 import { ErrorMessages } from '../common/constants/error-messages.constant';
-import {
-  buildIdWhere,
-  generatePublicId,
-} from '../common/utils/public-id.util';
+import { buildIdWhere, generatePublicId } from '../common/utils/public-id.util';
+import { BusinessService } from '../business/business.service';
 
 @Injectable()
 export class VehicleService {
@@ -33,6 +31,7 @@ export class VehicleService {
     @InjectRepository(Driver)
     private readonly driverRepo: Repository<Driver>,
     private readonly auditService: AuditService,
+    private readonly businessService: BusinessService,
   ) {}
 
   /**
@@ -48,6 +47,30 @@ export class VehicleService {
     }
 
     if (driver.estado !== EstadoConductorEnum.APROBADO) {
+      throw new ForbiddenException(ErrorMessages.DRIVER.DRIVER_NOT_APPROVED);
+    }
+
+    return driver;
+  }
+
+  /**
+   * Verifica que el usuario es un conductor (aprobado o pendiente) y retorna el driver.
+   * Usado para operaciones que no requieren estado aprobado, como disable.
+   */
+  private async getActiveDriver(userId: string): Promise<Driver> {
+    const driver = await this.driverRepo.findOne({
+      where: { userId },
+    });
+
+    if (!driver) {
+      throw new ForbiddenException(ErrorMessages.DRIVER.NOT_A_DRIVER);
+    }
+
+    const activeStates = [
+      EstadoConductorEnum.APROBADO,
+      EstadoConductorEnum.PENDIENTE,
+    ];
+    if (!activeStates.includes(driver.estado)) {
       throw new ForbiddenException(ErrorMessages.DRIVER.DRIVER_NOT_APPROVED);
     }
 
@@ -155,6 +178,13 @@ export class VehicleService {
 
     const updatedVehicle = await this.vehicleRepo.save(vehicle);
 
+    if (driver.estado === EstadoConductorEnum.APROBADO) {
+      driver.estado = EstadoConductorEnum.PENDIENTE;
+      driver.fechaAprobacion = null;
+      await this.driverRepo.save(driver);
+      await this.businessService.updateAlias(userId, 'Pasajero');
+    }
+
     await this.auditService.logEvent({
       action: AuditAction.DRIVER_VEHICLE_UPDATE,
       userId,
@@ -199,7 +229,7 @@ export class VehicleService {
     vehicleId: string,
     context: AuthContext,
   ): Promise<{ message: string }> {
-    const driver = await this.getApprovedDriver(userId);
+    const driver = await this.getActiveDriver(userId);
 
     const vehicle = await this.vehicleRepo.findOne({
       where: buildIdWhere<Vehicle>(vehicleId).map((where) => ({
@@ -239,7 +269,7 @@ export class VehicleService {
     vehicleId: string,
     context: AuthContext,
   ): Promise<{ message: string; vehicle: Vehicle }> {
-    const driver = await this.getApprovedDriver(userId);
+    const driver = await this.getActiveDriver(userId);
 
     const vehicle = await this.vehicleRepo.findOne({
       where: buildIdWhere<Vehicle>(vehicleId).map((where) => ({

@@ -4,6 +4,7 @@ import {
   IsString,
   Length,
   Matches,
+  MaxLength,
 } from 'class-validator';
 import { Transform } from 'class-transformer';
 import { ApiProperty } from '@nestjs/swagger';
@@ -16,6 +17,7 @@ export class RegisterUserDto {
   })
   @IsNotEmpty({ message: ErrorMessages.VALIDATION.REQUIRED_FIELD('email') })
   @IsEmail({}, { message: ErrorMessages.VALIDATION.INVALID_FORMAT('email') })
+  @MaxLength(30, { message: ErrorMessages.VALIDATION.EMAIL_MAX_LENGTH })
   @Transform(({ value }: { value: unknown }) =>
     typeof value === 'string' ? value.toLowerCase().trim() : value,
   )
@@ -84,4 +86,23 @@ export class RegisterUserDto {
     message: ErrorMessages.AUTH.PASSWORD_REQUIREMENTS,
   })
   password: string;
+
+  @ApiProperty({
+    description: 'Confirmaci\u00f3n de contrase\u00f1a',
+    example: 'Segura.123',
+    minLength: 7,
+    maxLength: 20,
+  })
+  @IsNotEmpty({
+    message: ErrorMessages.VALIDATION.REQUIRED_FIELD('confirmPassword'),
+  })
+  @IsString()
+  @Length(7, 20, { message: ErrorMessages.AUTH.PASSWORD_REQUIREMENTS })
+  @Transform(({ value }: { value: unknown }) =>
+    typeof value === 'string' ? value.trim() : value,
+  )
+  @Matches(/^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[/*.@_#-])[A-Za-z\d/*.@_#-]+$/, {
+    message: ErrorMessages.AUTH.PASSWORD_REQUIREMENTS,
+  })
+  confirmPassword: string;
 }

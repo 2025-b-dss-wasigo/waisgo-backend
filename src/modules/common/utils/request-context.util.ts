@@ -9,7 +9,7 @@ export const buildAuthContext = (req: Request): AuthContext => {
   const forwardedIp =
     typeof forwardedFor === 'string' ? forwardedFor.split(',')[0].trim() : '';
   const ip =
-    req.ip || req.socket?.remoteAddress || forwardedIp || 'unknown';
+    forwardedIp || req.ip || req.socket?.remoteAddress || 'unknown';
 
   return {
     ip,
