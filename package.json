@@ -24,11 +24,12 @@
     "test:e2e": "npm run migration:run:test && jest --config ./test/jest-e2e.json --runInBand --verbose",
     "test:integration": "npm run migration:run:test && jest --config ./test/jest-integration.json --runInBand --verbose",
     "typeorm": "typeorm-ts-node-commonjs",
-    "migration:generate": "npm run typeorm -- -d ormconfig.migration.ts migration:generate",
-    "migration:create": "npm run typeorm -- -d ormconfig.migration.ts migration:create",
-    "migration:run": "npm run typeorm -- -d ormconfig.migration.ts migration:run",
+    "migration:generate": "npm run typeorm -- -d src/ormconfig.migration.ts migration:generate",
+    "migration:create": "npm run typeorm -- -d src/ormconfig.migration.ts migration:create",
+    "migration:run": "npm run typeorm -- -d src/ormconfig.migration.ts migration:run",
+    "migration:run:prod": "typeorm -d dist/ormconfig.migration.js migration:run",
     "migration:run:test": "cross-env NODE_ENV=test npm run migration:run",
-    "migration:revert": "npm run typeorm -- -d ormconfig.migration.ts migration:revert"
+    "migration:revert": "npm run typeorm -- -d src/ormconfig.migration.ts migration:revert"
   },
   "dependencies": {
     "@nestjs-modules/mailer": "^2.0.2",
