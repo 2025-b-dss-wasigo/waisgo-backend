@@ -7,6 +7,7 @@ import {
   ConflictException,
   InternalServerErrorException,
 } from '@nestjs/common';
+import { randomInt } from 'node:crypto';
 import { InjectRepository } from '@nestjs/typeorm';
 import { BusinessUser } from './Models/business-user.entity';
 import { UserProfile } from './Models/user-profile.entity';
@@ -53,7 +54,7 @@ export class BusinessService {
   ) {}
 
   private randomAliasSuffix(): string {
-    const suffix = Math.floor(Math.random() * 9000) + 1000;
+    const suffix = randomInt(1000, 10000);
     return suffix.toString();
   }
 

@@ -14,10 +14,7 @@ async function bootstrap() {
   const auditService = app.get(AuditService);
   const configService = app.get(ConfigService);
   const isProd = configService.get<string>('NODE_ENV') === 'production';
-  const swaggerEnabled = configService.get<boolean>(
-    'SWAGGER_ENABLED',
-    !isProd,
-  );
+  const swaggerEnabled = configService.get<boolean>('SWAGGER_ENABLED', !isProd);
   const trustProxy = configService.get<boolean>('TRUST_PROXY', false);
   const frontendUrl =
     configService.get<string>('FRONTEND_URL') || 'http://localhost:4200';
@@ -25,7 +22,7 @@ async function bootstrap() {
   app.setGlobalPrefix('api');
 
   if (trustProxy) {
-    const server = app.getHttpAdapter().getInstance() as any;
+    const server = app.getHttpAdapter().getInstance();
     server.set('trust proxy', 1);
   }
 

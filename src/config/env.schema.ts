@@ -21,16 +21,10 @@ export const envSchema = Joi.object({
   JWT_SECRET: Joi.string().length(32).required(),
   JWT_EXPIRES_IN: Joi.string().default('8h'),
   OTP_SECRET: Joi.string().length(32).optional(),
-  SWAGGER_ENABLED: Joi.boolean().when('NODE_ENV', {
-    is: 'production',
-    then: Joi.boolean().default(false),
-    otherwise: Joi.boolean().default(true),
-  }),
-  SEED_ENABLED: Joi.boolean().when('NODE_ENV', {
-    is: 'production',
-    then: Joi.boolean().default(false),
-    otherwise: Joi.boolean().default(true),
-  }),
+
+  SWAGGER_ENABLED: Joi.boolean().optional(),
+  SEED_ENABLED: Joi.boolean().optional(),
+
   TRUST_PROXY: Joi.boolean().default(false),
 
   PAYPAL_CLIENT_ID: Joi.string().required(),

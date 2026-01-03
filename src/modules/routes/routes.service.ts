@@ -323,9 +323,9 @@ export class RoutesService {
       `${route.driver?.user?.profile?.nombre ?? ''} ${route.driver?.user?.profile?.apellido ?? ''}`.trim() ||
       route.driver?.publicId;
     const rating =
-      route.driver?.user?.profile?.ratingPromedio !== undefined
-        ? Number(route.driver?.user?.profile?.ratingPromedio)
-        : null;
+      route.driver?.user?.profile?.ratingPromedio === undefined
+        ? null
+        : Number(route.driver?.user?.profile?.ratingPromedio);
 
     return {
       id: route.id,

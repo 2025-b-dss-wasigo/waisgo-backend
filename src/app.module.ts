@@ -52,7 +52,9 @@ import { AdminModule } from './modules/admin/admin.module';
           configService.get('DB_SSL') === 'true' ||
           configService.get('DB_SSL') === true;
         const rawCa = configService.get<string>('DB_SSL_CA');
-        const normalizedCa = rawCa ? rawCa.replace(/\\n/g, '\n') : undefined;
+        const normalizedCa = rawCa
+          ? rawCa.replaceAll(String.raw`\n`, '\n')
+          : undefined;
         const sslConfig = isSslEnabled
           ? {
               rejectUnauthorized: true,
