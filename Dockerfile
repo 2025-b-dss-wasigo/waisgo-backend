@@ -22,7 +22,7 @@ RUN npm run build
 # ======================
 FROM node:20.19.6-alpine3.21
 
-LABEL org.opencontainers.image.source="https://github.com/2025-b-dss-wasigo/waisgo-backend"
+LABEL org.opencontainers.image.source=https://github.com/2025-b-dss-wasigo/waisgo-backend
 
 WORKDIR /app
 
