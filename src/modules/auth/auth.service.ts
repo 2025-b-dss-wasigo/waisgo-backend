@@ -157,8 +157,7 @@ export class AuthService {
 
       return {
         success: true,
-        userId: businessIdentity.publicId,
-        alias: businessIdentity.alias,
+        message: ErrorMessages.AUTH.ACCOUNT_CREATE,
       };
     } catch (error) {
       await queryRunner.rollbackTransaction();
@@ -259,6 +258,7 @@ export class AuthService {
       );
 
       return {
+        role: user.rol,
         token,
         expiresIn: 28800, // 8h en segundos
       };

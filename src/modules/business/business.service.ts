@@ -244,16 +244,6 @@ export class BusinessService {
 
     await this.profileRepo.save(profile);
 
-    // Manejar cambio de email si está presente
-    if (dto.email !== undefined) {
-      const { businessUser, authUser } = await this.updateEmailIfChanged(
-        userId,
-        dto.email,
-      );
-      await this.authUserRepo.save(authUser);
-      await this.businessUserRepo.save(businessUser);
-    }
-
     this.logger.log(`Profile updated for user: ${userId}`);
 
     await this.auditService.logEvent({
@@ -381,6 +371,10 @@ export class BusinessService {
       throw new BadRequestException(ErrorMessages.DRIVER.FILE_REQUIRED);
     }
 
+    if (!file.buffer || file.buffer.length === 0) {
+      throw new BadRequestException(ErrorMessages.DRIVER.FILE_VOID);
+    }
+
     if (file.size > this.MAX_PROFILE_PHOTO_SIZE) {
       throw new BadRequestException(ErrorMessages.DRIVER.FILE_TOO_LARGE);
     }
@@ -390,7 +384,7 @@ export class BusinessService {
     }
 
     if (!hasValidFileSignature(file.buffer, file.mimetype)) {
-      throw new BadRequestException(ErrorMessages.DRIVER.INVALID_FILE_FORMAT);
+      throw new BadRequestException(ErrorMessages.DRIVER.FILE_SIGNATURE);
     }
 
     const profile = await this.profileRepo.findOne({ where: { userId } });

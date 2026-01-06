@@ -10,6 +10,7 @@ import {
   Req,
   UploadedFile,
   UseInterceptors,
+  BadRequestException,
 } from '@nestjs/common';
 import { Roles, User } from '../common/Decorators';
 import { RolUsuarioEnum } from '../auth/Enum';
@@ -27,8 +28,6 @@ import { UpdateProfileDto } from './Dto';
 import { BusinessService } from './business.service';
 import { FileInterceptor } from '@nestjs/platform-express';
 import type { Request } from 'express';
-
-const PROFILE_PHOTO_MAX_SIZE = 2 * 1024 * 1024;
 
 @ApiTags('Business')
 @Controller('business')
@@ -68,11 +67,7 @@ export class BusinessController {
     return await this.businessService.getMyProfile(safeUserId);
   }
 
-  @Roles(
-    RolUsuarioEnum.USER,
-    RolUsuarioEnum.PASAJERO,
-    RolUsuarioEnum.CONDUCTOR,
-  )
+  @Roles(RolUsuarioEnum.USER, RolUsuarioEnum.PASAJERO, RolUsuarioEnum.CONDUCTOR)
   @Patch('profile')
   @HttpCode(HttpStatus.OK)
   @ApiBearerAuth('access-token')
@@ -118,8 +113,10 @@ export class BusinessController {
         file: {
           type: 'string',
           format: 'binary',
+          description: 'Imagen de perfil (JPEG o PNG, máximo 2MB)',
         },
       },
+      required: ['file'],
     },
   })
   @ApiOperation({ summary: 'Actualizar foto de perfil del usuario verificado' })
@@ -141,7 +138,20 @@ export class BusinessController {
   })
   @UseInterceptors(
     FileInterceptor('file', {
-      limits: { fileSize: PROFILE_PHOTO_MAX_SIZE },
+      limits: { fileSize: 2 * 1024 * 1024 },
+      fileFilter: (_req, file, callback) => {
+        const allowedMimes = ['image/jpeg', 'image/jpg', 'image/png'];
+        if (allowedMimes.includes(file.mimetype)) {
+          callback(null, true);
+        } else {
+          callback(
+            new BadRequestException(
+              `Formato no permitido: ${file.mimetype}. Solo JPEG o PNG.`,
+            ),
+            false,
+          );
+        }
+      },
     }),
   )
   async updateProfilePhoto(
@@ -149,8 +159,9 @@ export class BusinessController {
     @UploadedFile() file: Express.Multer.File,
     @Req() req: Request,
   ) {
+    const safeUserId = await this.validateUserId(user.id);
     return this.businessService.updateProfilePhoto(
-      user.id,
+      safeUserId,
       file,
       buildAuthContext(req),
     );

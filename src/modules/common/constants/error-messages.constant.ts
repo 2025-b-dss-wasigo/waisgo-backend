@@ -13,6 +13,7 @@ export const ErrorMessages = {
     EMAIL_ALREADY_EXISTS: 'Este correo ya está registrado',
     EMAIL_NOT_FOUND: 'No existe una cuenta con este correo',
     INVALID_EMAIL_DOMAIN: 'El correo debe ser @epn.edu.ec',
+    ACCOUNT_CREATE: 'Cuenta creada exitosamente',
 
     // Contraseña
     INVALID_CURRENT_PASSWORD: 'La contraseña actual es incorrecta',
@@ -46,6 +47,7 @@ export const ErrorMessages = {
     RESEND_LIMIT: 'Has alcanzado el límite de reenvíos (máximo 3)',
     VERIFICATION_SUCCESS: 'Cuenta verificada exitosamente',
     CODE_FORMAT_INVALID: 'El código debe ser de 6 dígitos',
+    CODE_INVALID_OR_EXPIRED: 'Código inválido o expirado',
   },
 
   // ============ USER ============
@@ -100,7 +102,9 @@ export const ErrorMessages = {
     SEATS_RANGE: 'Los asientos disponibles deben ser entre 1 y 6',
     FILE_REQUIRED: 'El archivo es requerido',
     FILE_TOO_LARGE: 'El archivo no puede superar 2 MB',
-    INVALID_FILE_FORMAT: 'Solo se permiten archivos PNG, JPG o PDF',
+    INVALID_FILE_FORMAT: 'Solo se permiten archivos PNG, JPG o JPEG',
+    FILE_VOID: 'El archivo está vacío o no se pudo leer',
+    FILE_SIGNATURE: 'La firma del archivo no coincide con el tipo declarado',
     INVALID_PAYPAL: 'La cuenta de PayPal no es válida',
     PAYPAL_EMAIL_MAX_LENGTH: 'El email no puede superar 254 caracteres',
     DOCUMENT_UPLOADED: 'Documento subido correctamente',
@@ -275,9 +279,9 @@ export const ErrorMessages = {
 
   // ============ MAIL ============
   MAIL: {
-    SEND_FAILED: 'Error al enviar el correo electr¢nico. Por favor intente m s tarde.',
+    SEND_FAILED:
+      'Error al enviar el correo electr¢nico. Por favor intente m s tarde.',
   },
-
 } as const;
 
 // Códigos de error para el frontend (para manejar casos específicos)
@@ -336,7 +340,7 @@ export const ErrorCodes = {
 
   // ============ MAIL ============
   MAIL: {
-    SEND_FAILED: 'Error al enviar el correo electr¢nico. Por favor intente m s tarde.',
+    SEND_FAILED:
+      'Error al enviar el correo electr¢nico. Por favor intente m s tarde.',
   },
-
 } as const;
