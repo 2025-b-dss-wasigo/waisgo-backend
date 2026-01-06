@@ -29,10 +29,7 @@ export class UpdatePasswordDto {
   })
   @IsString()
   @Length(7, 20, { message: ErrorMessages.AUTH.PASSWORD_REQUIREMENTS })
-  @Transform(({ value }: { value: unknown }) =>
-    typeof value === 'string' ? value.trim() : value,
-  )
-  @Matches(/^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[/*.@-_#]).+$/, {
+  @Matches(/^(?=.*[a-z])(?=.*[A-Z])(?=.*[0-9])(?=.*[!@#$%^&*]).+$/, {
     message: ErrorMessages.AUTH.PASSWORD_REQUIREMENTS,
   })
   newPassword: string;

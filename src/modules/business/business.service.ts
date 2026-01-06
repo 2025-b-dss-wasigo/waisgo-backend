@@ -327,6 +327,13 @@ export class BusinessService {
     });
   }
 
+  async findByPublicId(publicId: string): Promise<BusinessUser | null> {
+    return this.businessUserRepo.findOne({
+      where: { publicId, isDeleted: false },
+      relations: ['profile'],
+    });
+  }
+
   async getMyProfile(userId: string) {
     const user = await this.businessUserRepo.findOne({
       where: { id: userId, isDeleted: false },

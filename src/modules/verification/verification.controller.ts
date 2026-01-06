@@ -7,6 +7,7 @@ import {
   BadRequestException,
   ParseUUIDPipe,
   Req,
+  Param,
 } from '@nestjs/common';
 import type { Request } from 'express';
 import { Throttle } from '@nestjs/throttler';
@@ -24,6 +25,7 @@ import { ErrorMessages } from '../common/constants/error-messages.constant';
 import { buildAuthContext } from '../common/utils/request-context.util';
 import { Roles } from '../common/Decorators/roles.decorator';
 import { RolUsuarioEnum } from '../auth/Enum';
+import { Public } from '../common/Decorators/public.decorator';
 
 @ApiTags('Verification')
 @Controller('verification')
@@ -33,7 +35,44 @@ export class VerificationController {
   constructor(private readonly verificationService: VerificationService) {}
 
   private async validateUserId(userId: string): Promise<string> {
+    // Si es un publicId (formato USR_XXXX), devolverlo tal cual
+    if (userId.startsWith('USR_')) {
+      return userId;
+    }
+    // Si es un UUID, validarlo
     return this.uuidPipe.transform(userId, { type: 'custom' });
+  }
+
+  /**
+   * Enviar código de verificación sin autenticación (para después del registro)
+   * POST /verification/send/:userId
+   */
+  @Public()
+  @Post('send/:userId')
+  @HttpCode(HttpStatus.OK)
+  @Throttle({ default: { limit: 3, ttl: 600000 } })
+  @ApiOperation({ summary: 'Enviar código de verificación por correo (sin autenticación)' })
+  @ApiResponse({
+    status: 200,
+    description: 'Código de verificación enviado al correo registrado.',
+  })
+  @ApiResponse({
+    status: 400,
+    description: 'Usuario ya verificado o no encontrado.',
+  })
+  @ApiResponse({
+    status: 403,
+    description: 'Límite de reenvíos alcanzado.',
+  })
+  async sendPublic(@Param('userId') userId: string, @Req() req: Request) {
+    const safeUserId = await this.validateUserId(userId);
+    const context = buildAuthContext(req);
+    await this.verificationService.sendVerification(safeUserId, context);
+
+    return {
+      success: true,
+      message: ErrorMessages.VERIFICATION.CODE_SENT,
+    };
   }
 
   /**
@@ -115,6 +154,47 @@ export class VerificationController {
 
     const context = buildAuthContext(req);
     const safeUserId = await this.validateUserId(user.id);
+    await this.verificationService.confirmVerification(
+      safeUserId,
+      dto.code,
+      context,
+    );
+
+    return {
+      success: true,
+      message: ErrorMessages.VERIFICATION.VERIFICATION_SUCCESS,
+    };
+  }
+
+  /**
+   * Confirmar código OTP sin autenticación (para después del registro)
+   * POST /verification/confirm/:userId
+   */
+  @Public()
+  @Post('confirm/:userId')
+  @HttpCode(HttpStatus.OK)
+  @Throttle({ default: { limit: 5, ttl: 600000 } })
+  @ApiOperation({ summary: 'Confirmar código de verificación (sin autenticación)' })
+  @ApiResponse({
+    status: 200,
+    description:
+      'Cuenta verificada exitosamente. El usuario ahora tiene rol PASAJERO.',
+  })
+  @ApiResponse({
+    status: 400,
+    description: 'Usuario ya verificado, código incorrecto o expirado.',
+  })
+  @ApiResponse({
+    status: 403,
+    description: 'Demasiados intentos fallidos. OTP bloqueado.',
+  })
+  async confirmPublic(
+    @Param('userId') userId: string,
+    @Body() dto: ConfirmOtpDto,
+    @Req() req: Request,
+  ) {
+    const safeUserId = await this.validateUserId(userId);
+    const context = buildAuthContext(req);
     await this.verificationService.confirmVerification(
       safeUserId,
       dto.code,

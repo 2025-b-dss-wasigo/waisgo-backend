@@ -24,9 +24,15 @@ export class VerificationService {
   ) {}
 
   /**
-   * Valida que el userId sea un UUID válido
+   * Valida que el userId sea un UUID válido o un publicId (USR_XXXX)
    */
   private validateUserId(userId: string): void {
+    // Aceptar formato publicId (USR_XXXX)
+    if (userId.startsWith('USR_')) {
+      return;
+    }
+
+    // O validar como UUID
     const validate = isUUID as unknown as (str: string) => boolean;
 
     if (!validate(userId)) {
@@ -82,7 +88,7 @@ export class VerificationService {
     // Auditar envío de código
     await this.auditService.logEvent({
       action: AuditAction.VERIFICATION_CODE_SENT,
-      userId,
+      userId: user.id,
       ipAddress: context?.ip,
       userAgent: context?.userAgent,
       result: AuditResult.SUCCESS,
@@ -91,7 +97,7 @@ export class VerificationService {
 
     this.logger.log({
       message: 'Verification email sent',
-      userId,
+      userId: user.id,
       email: user.email,
       ip: context?.ip,
     });
@@ -109,17 +115,19 @@ export class VerificationService {
     const sanitizedCode = this.sanitizeCode(code);
     this.validateCodeFormat(sanitizedCode);
 
+    const user = await this.authService.findForVerification(userId);
+
     try {
-      await this.otpService.validateOtp(userId, sanitizedCode);
-      await this.authService.verifyUser(userId);
+      await this.otpService.validateOtp(user.id, sanitizedCode);
+      await this.authService.verifyUser(user.id);
 
       // Limpiar todos los datos de OTP después de verificación exitosa
-      await this.otpService.invalidateOtp(userId);
+      await this.otpService.invalidateOtp(user.id);
 
       // Auditar verificación exitosa
       await this.auditService.logEvent({
         action: AuditAction.VERIFICATION_SUCCESS,
-        userId,
+        userId: user.id,
         ipAddress: context?.ip,
         userAgent: context?.userAgent,
         result: AuditResult.SUCCESS,
@@ -127,14 +135,14 @@ export class VerificationService {
 
       this.logger.log({
         message: 'User verified successfully',
-        userId,
+        userId: user.id,
         ip: context?.ip,
       });
     } catch (error) {
       // Auditar verificación fallida
       await this.auditService.logEvent({
         action: AuditAction.VERIFICATION_FAILED,
-        userId,
+        userId: user.id,
         ipAddress: context?.ip,
         userAgent: context?.userAgent,
         result: AuditResult.FAILED,

@@ -27,6 +27,7 @@ import { AuditService } from './../audit/audit.service';
 import { RedisService } from 'src/redis/redis.service';
 import { MailService } from 'src/modules/mail/mail.service';
 import { AuthUser } from './Models/auth-user.entity';
+import { BusinessUser } from '../business/Models/business-user.entity';
 import { BusinessService } from '../business/business.service';
 
 @Injectable()
@@ -54,6 +55,8 @@ export class AuthService {
   constructor(
     @InjectRepository(AuthUser)
     private readonly authUserRepo: Repository<AuthUser>,
+    @InjectRepository(BusinessUser)
+    private readonly businessUserRepo: Repository<BusinessUser>,
     private readonly dataSource: DataSource,
     private readonly businessService: BusinessService,
     private readonly configService: ConfigService,
@@ -157,7 +160,14 @@ export class AuthService {
 
       return {
         success: true,
-        message: ErrorMessages.AUTH.ACCOUNT_CREATE,
+        user: {
+          id: businessIdentity.publicId,
+          email: normalizedEmail,
+          nombre,
+          apellido,
+          celular,
+          alias: businessIdentity.alias,
+        },
       };
     } catch (error) {
       await queryRunner.rollbackTransaction();
@@ -257,10 +267,27 @@ export class AuthService {
         { email: user.email, role: user.rol, ip: context?.ip },
       );
 
+      // Obtener datos del usuario desde BusinessUser
+      const businessUser = await this.businessUserRepo.findOne({
+        where: { id: user.id },
+        relations: ['profile'],
+      });
+
       return {
-        role: user.rol,
-        token,
+        access_token: token,
         expiresIn: 28800, // 8h en segundos
+        user: {
+          id: businessUser?.publicId || user.id,
+          email: user.email,
+          nombre: businessUser?.profile?.nombre || '',
+          apellido: businessUser?.profile?.apellido || '',
+          celular: businessUser?.profile?.celular || '',
+          alias: businessUser?.alias || '',
+          rol: user.rol,
+          estadoVerificacion: user.estadoVerificacion,
+          foto: businessUser?.profile?.fotoPerfilUrl,
+          createdAt: user.createdAt?.toISOString(),
+        },
       };
     } catch (error) {
       if (error instanceof UnauthorizedException) throw error;
@@ -536,7 +563,20 @@ export class AuthService {
     );
   }
 
-  async findForVerification(userId: string) {
+  async findForVerification(userIdentifier: string) {
+    let userId = userIdentifier;
+
+    // Si es un publicId (formato USR_XXXX), convertir a UUID
+    if (userIdentifier.startsWith('USR_')) {
+      const businessUser = await this.businessService.findByPublicId(
+        userIdentifier,
+      );
+      if (!businessUser) {
+        throw new NotFoundException(ErrorMessages.USER.NOT_FOUND);
+      }
+      userId = businessUser.id;
+    }
+
     const user = await this.authUserRepo.findOne({
       where: { id: userId },
       select: ['id', 'email', 'estadoVerificacion'],
