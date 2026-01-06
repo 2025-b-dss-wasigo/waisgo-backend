@@ -32,25 +32,7 @@ import { BusinessService } from '../business/business.service';
 
 @Injectable()
 export class AuthService {
-  /**
-   * AuthService - Responsabilidad Única: Autenticación
-   * 
-   * Métodos Permitidos:
-   * - register(): Crear cuenta y generar credenciales
-   * - login(): Validar credenciales y emitir token
-   * - logout(): Revocar sesión
-   * - changePassword(): Cambiar contraseña del usuario
-   * - forgotPassword(): Iniciar flujo de recuperación
-   * - resetPassword(): Completar recuperación de contraseña
-   * - findForVerification(): Encontrar usuario para verificación (soporte)
-   * - verifyUser(): Marcar usuario como verificado (soporte)
-   * - getAdminEmails(): Obtener correos de admins (soporte para notificaciones)
-   * 
-   * NO debe hacer:
-   * - Gestionar perfil del usuario
-   * - Exponer datos sensibles (email, nombre, teléfono, etc.)
-   * - Gestionar fotografías o almacenamiento
-   */
+
   private readonly logger = new Logger(AuthService.name);
   private readonly secretKey: Uint8Array;
   private readonly JWT_EXPIRES_IN: string;
