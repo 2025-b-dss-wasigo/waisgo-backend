@@ -16,7 +16,7 @@ import {
 import {
   createDriver,
   createVehicle,
-  getBusinessUserByEmail,
+  getBusinessUserFromAuth,
 } from './helpers/fixtures';
 
 const hasTestDb = Boolean(process.env.TEST_DB_HOST);
@@ -78,13 +78,14 @@ describeFlow('Bookings cancel + no-show flows (e2e)', () => {
       driverSeed.password,
     );
 
-    const driverBusiness = await getBusinessUserByEmail(
+    const driverBusiness = await getBusinessUserFromAuth(
+      ctx.app,
       ctx.dataSource,
       driverSeed.email,
     );
 
     const driver = await createDriver(ctx.dataSource, {
-      userId: driverBusiness?.id as string,
+      businessUserId: driverBusiness?.id as string,
       paypalEmail: 'driver@epn.edu.ec',
     });
 

@@ -1,5 +1,10 @@
 import { SendVerificationEmailOptions } from './../mail/Dto/Send-VerificationEmail.dto';
-import { Injectable, BadRequestException, Logger } from '@nestjs/common';
+import {
+  Injectable,
+  BadRequestException,
+  Logger,
+  NotFoundException,
+} from '@nestjs/common';
 import { AuthService } from '../auth/auth.service';
 import { OtpService } from '../otp/otp.service';
 import { MailService } from '../mail/mail.service';
@@ -9,7 +14,8 @@ import { AuditService } from '../audit/audit.service';
 import { AuditAction, AuditResult } from '../audit/Enums';
 import { ErrorMessages } from '../common/constants/error-messages.constant';
 import type { AuthContext } from '../common/types';
-import { validate as isUUID } from 'uuid';
+import { isUUID } from 'class-validator';
+import { IdentityResolverService } from '../identity';
 
 @Injectable()
 export class VerificationService {
@@ -21,15 +27,14 @@ export class VerificationService {
     private readonly businessService: BusinessService,
     private readonly mailService: MailService,
     private readonly auditService: AuditService,
+    private readonly identityResolver: IdentityResolverService,
   ) {}
 
   /**
    * Valida que el userId sea un UUID válido
    */
   private validateUserId(userId: string): void {
-    const validate = isUUID as unknown as (str: string) => boolean;
-
-    if (!validate(userId)) {
+    if (!isUUID(userId)) {
       throw new BadRequestException(
         ErrorMessages.VALIDATION.INVALID_FORMAT('userId'),
       );
@@ -54,11 +59,21 @@ export class VerificationService {
     }
   }
 
-  async sendVerification(userId: string, context?: AuthContext): Promise<void> {
+  async sendVerification(
+    businessUserId: string,
+    context?: AuthContext,
+  ): Promise<void> {
     // Validar UUID antes de cualquier operación
-    this.validateUserId(userId);
+    this.validateUserId(businessUserId);
 
-    const user = await this.authService.findForVerification(userId);
+    // Resolver authUserId desde businessUserId
+    const authUserId =
+      await this.identityResolver.resolveAuthUserId(businessUserId);
+    if (!authUserId) {
+      throw new NotFoundException(ErrorMessages.USER.NOT_FOUND);
+    }
+
+    const user = await this.authService.findForVerification(authUserId);
 
     if (user.estadoVerificacion === EstadoVerificacionEnum.VERIFICADO) {
       throw new BadRequestException(
@@ -68,7 +83,8 @@ export class VerificationService {
 
     const otp = await this.otpService.sendOtp(user.id);
 
-    const displayName = await this.businessService.getDisplayName(user.id);
+    const displayName =
+      await this.businessService.getDisplayName(businessUserId);
 
     const mailOptions: SendVerificationEmailOptions = {
       to: user.email,
@@ -82,7 +98,7 @@ export class VerificationService {
     // Auditar envío de código
     await this.auditService.logEvent({
       action: AuditAction.VERIFICATION_CODE_SENT,
-      userId,
+      userId: businessUserId,
       ipAddress: context?.ip,
       userAgent: context?.userAgent,
       result: AuditResult.SUCCESS,
@@ -91,35 +107,42 @@ export class VerificationService {
 
     this.logger.log({
       message: 'Verification email sent',
-      userId,
+      businessUserId,
       email: user.email,
       ip: context?.ip,
     });
   }
 
   async confirmVerification(
-    userId: string,
+    businessUserId: string,
     code: string,
     context?: AuthContext,
   ): Promise<void> {
     // Validar UUID antes de cualquier operación
-    this.validateUserId(userId);
+    this.validateUserId(businessUserId);
 
     // Sanitizar y validar código ANTES de consultar Redis
     const sanitizedCode = this.sanitizeCode(code);
     this.validateCodeFormat(sanitizedCode);
 
+    // Resolver authUserId desde businessUserId
+    const authUserId =
+      await this.identityResolver.resolveAuthUserId(businessUserId);
+    if (!authUserId) {
+      throw new NotFoundException(ErrorMessages.USER.NOT_FOUND);
+    }
+
     try {
-      await this.otpService.validateOtp(userId, sanitizedCode);
-      await this.authService.verifyUser(userId);
+      await this.otpService.validateOtp(authUserId, sanitizedCode);
+      await this.authService.verifyUser(authUserId);
 
       // Limpiar todos los datos de OTP después de verificación exitosa
-      await this.otpService.invalidateOtp(userId);
+      await this.otpService.invalidateOtp(authUserId);
 
       // Auditar verificación exitosa
       await this.auditService.logEvent({
         action: AuditAction.VERIFICATION_SUCCESS,
-        userId,
+        userId: businessUserId,
         ipAddress: context?.ip,
         userAgent: context?.userAgent,
         result: AuditResult.SUCCESS,
@@ -127,14 +150,14 @@ export class VerificationService {
 
       this.logger.log({
         message: 'User verified successfully',
-        userId,
+        businessUserId,
         ip: context?.ip,
       });
     } catch (error) {
       // Auditar verificación fallida
       await this.auditService.logEvent({
         action: AuditAction.VERIFICATION_FAILED,
-        userId,
+        userId: businessUserId,
         ipAddress: context?.ip,
         userAgent: context?.userAgent,
         result: AuditResult.FAILED,

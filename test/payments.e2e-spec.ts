@@ -1,5 +1,4 @@
 import request from 'supertest';
-import { randomUUID } from 'node:crypto';
 import { truncateAllTables } from './helpers/db';
 import { Payment } from '../src/modules/payments/Models/payment.entity';
 import { MetodoPagoEnum } from '../src/modules/payments/Enums';
@@ -10,6 +9,7 @@ import {
   createBusinessUser,
   createDriver,
   createRoute,
+  getBusinessUserFromAuth,
 } from './helpers/fixtures';
 
 const hasTestDb = Boolean(process.env.TEST_DB_HOST);
@@ -39,24 +39,28 @@ describePayments('Payments idempotency (e2e)', () => {
       celular: '0987654321',
     });
 
-    const { token, authUser } = await registerAndVerifyUser(
+    const { token } = await registerAndVerifyUser(
       ctx.app,
       ctx.dataSource,
       ctx.redis,
       seed,
     );
 
+    // Resolver businessUser desde authUser
+    const passengerBusiness = await getBusinessUserFromAuth(
+      ctx.app,
+      ctx.dataSource,
+      seed.email,
+    );
+
     const paymentRepo = ctx.dataSource.getRepository(Payment);
 
-    const driverUserId = randomUUID();
-    await createBusinessUser(ctx.dataSource, {
-      id: driverUserId,
-      email: `dr${suffix}@epn.edu.ec`,
+    const driverUser = await createBusinessUser(ctx.dataSource, {
       alias: `driver${suffix}`.slice(0, 20),
     });
 
     const driver = await createDriver(ctx.dataSource, {
-      userId: driverUserId,
+      businessUserId: driverUser.id,
       paypalEmail: 'driver@epn.edu.ec',
     });
 
@@ -70,7 +74,7 @@ describePayments('Payments idempotency (e2e)', () => {
 
     const booking = await createBooking(ctx.dataSource, {
       routeId: route.id,
-      passengerId: authUser.id,
+      passengerId: passengerBusiness!.id,
       metodoPago: MetodoPagoEnum.PAYPAL,
     });
 

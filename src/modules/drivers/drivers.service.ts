@@ -28,6 +28,8 @@ import type { AuthContext } from '../common/types';
 import { ErrorMessages } from '../common/constants/error-messages.constant';
 import { buildIdWhere, generatePublicId } from '../common/utils/public-id.util';
 import { hasValidFileSignature } from '../common/utils/file-validation.util';
+import { IdentityResolverService } from '../identity';
+import { AuthUser } from '../auth/Models/auth-user.entity';
 
 export interface DriverDocumentWithUrl extends DriverDocument {
   signedUrl: string;
@@ -62,23 +64,26 @@ export class DriversService {
     private readonly documentRepo: Repository<DriverDocument>,
     @InjectRepository(BusinessUser)
     private readonly businessUserRepo: Repository<BusinessUser>,
+    @InjectRepository(AuthUser)
+    private readonly authUserRepo: Repository<AuthUser>,
     private readonly storageService: StorageService,
     private readonly auditService: AuditService,
     private readonly mailService: MailService,
     private readonly authService: AuthService,
     private readonly configService: ConfigService,
+    private readonly identityResolver: IdentityResolverService,
   ) {}
 
   /**
    * Aplica para ser conductor
    */
   async applyAsDriver(
-    userId: string,
+    businessUserId: string,
     paypalEmail: string,
     context: AuthContext,
   ): Promise<{ message: string; driverId: string }> {
     const businessUser = await this.businessUserRepo.findOne({
-      where: { id: userId, isDeleted: false },
+      where: { id: businessUserId, isDeleted: false },
       relations: ['profile'],
     });
 
@@ -87,7 +92,7 @@ export class DriversService {
     }
 
     const existingDriver = await this.driverRepo.findOne({
-      where: { userId },
+      where: { businessUserId },
     });
 
     if (existingDriver) {
@@ -123,7 +128,7 @@ export class DriversService {
 
         await this.auditService.logEvent({
           action: AuditAction.DRIVER_APPLICATION_SUBMITTED,
-          userId,
+          userId: businessUserId,
           result: AuditResult.SUCCESS,
           ipAddress: context.ip,
           userAgent: context.userAgent,
@@ -146,7 +151,7 @@ export class DriversService {
 
     const driver = this.driverRepo.create({
       publicId: await generatePublicId(this.driverRepo, 'DRV'),
-      userId,
+      businessUserId,
       paypalEmail,
       estado: EstadoConductorEnum.PENDIENTE,
     });
@@ -155,7 +160,7 @@ export class DriversService {
 
     await this.auditService.logEvent({
       action: AuditAction.DRIVER_APPLICATION_SUBMITTED,
-      userId,
+      userId: businessUserId,
       result: AuditResult.SUCCESS,
       ipAddress: context.ip,
       userAgent: context.userAgent,
@@ -169,7 +174,7 @@ export class DriversService {
       savedDriver.id,
     );
 
-    this.logger.log(`Driver application submitted for user ${userId}`);
+    this.logger.log(`Driver application submitted for user ${businessUserId}`);
 
     return {
       message: ErrorMessages.DRIVER.APPLICATION_SUBMITTED,
@@ -180,9 +185,11 @@ export class DriversService {
   /**
    * Obtiene el estado de la solicitud del conductor con URLs firmadas
    */
-  async getMyDriverStatus(userId: string): Promise<DriverStatusResponse> {
+  async getMyDriverStatus(
+    businessUserId: string,
+  ): Promise<DriverStatusResponse> {
     const driver = await this.driverRepo.findOne({
-      where: { userId },
+      where: { businessUserId },
       relations: ['documents', 'vehicles'],
     });
 
@@ -289,7 +296,7 @@ export class DriversService {
    * Sube un documento del conductor
    */
   async uploadDocument(
-    userId: string,
+    businessUserId: string,
     tipo: TipoDocumentoEnum,
     file: Express.Multer.File,
     context: AuthContext,
@@ -311,7 +318,7 @@ export class DriversService {
     }
 
     const driver = await this.driverRepo.findOne({
-      where: { userId },
+      where: { businessUserId },
     });
 
     if (!driver) {
@@ -365,7 +372,7 @@ export class DriversService {
 
     await this.auditService.logEvent({
       action: AuditAction.DRIVER_VEHICLE_UPDATE,
-      userId,
+      userId: businessUserId,
       result: AuditResult.SUCCESS,
       ipAddress: context.ip,
       userAgent: context.userAgent,
@@ -397,11 +404,13 @@ export class DriversService {
   }
 
   /**
-   * Obtiene el driver por userId
+   * Obtiene el driver por businessUserId
    */
-  async getDriverByUserId(userId: string): Promise<Driver | null> {
+  async getDriverByBusinessUserId(
+    businessUserId: string,
+  ): Promise<Driver | null> {
     return this.driverRepo.findOne({
-      where: { userId },
+      where: { businessUserId },
       relations: ['documents', 'vehicles'],
     });
   }
@@ -428,9 +437,17 @@ export class DriversService {
         ? `${businessUser.profile.nombre} ${businessUser.profile.apellido}`
         : businessUser.alias;
 
+      // Resolver el email del AuthUser
+      const authUserId = await this.identityResolver.resolveAuthUserId(
+        businessUser.id,
+      );
+      const authUser = authUserId
+        ? await this.authUserRepo.findOne({ where: { id: authUserId } })
+        : null;
+
       await this.mailService.sendDriverApplicationNotification(adminEmails, {
         applicantName,
-        applicantEmail: businessUser.email,
+        applicantEmail: authUser?.email || 'N/A',
         paypalEmail,
         applicationDate: new Date().toLocaleDateString('es-EC', {
           year: 'numeric',

@@ -4,7 +4,12 @@ import { FakeStorageService } from './helpers/fakes';
 import { truncateAllTables } from './helpers/db';
 import { RolUsuarioEnum } from '../src/modules/auth/Enum';
 import { createTestApp, TestAppContext } from './helpers/app';
-import { buildUserSeed, loginUser, registerUser, setUserRole } from './helpers/auth';
+import {
+  buildUserSeed,
+  loginUser,
+  registerUser,
+  setUserRole,
+} from './helpers/auth';
 
 const hasTestDb = Boolean(process.env.TEST_DB_HOST);
 const describeFlow = hasTestDb ? describe : describe.skip;
@@ -46,7 +51,12 @@ describeFlow('Driver onboarding + vehicle lifecycle (e2e)', () => {
     });
 
     await registerUser(ctx.app, adminSeed);
-    await setUserRole(ctx.dataSource, adminSeed.email, RolUsuarioEnum.ADMIN, true);
+    await setUserRole(
+      ctx.dataSource,
+      adminSeed.email,
+      RolUsuarioEnum.ADMIN,
+      true,
+    );
     const adminToken = await loginUser(
       ctx.app,
       adminSeed.email,
@@ -117,9 +127,9 @@ describeFlow('Driver onboarding + vehicle lifecycle (e2e)', () => {
     const pendingDrivers = listRes.body?.data?.drivers as Array<{
       publicId?: string;
     }>;
-    expect(
-      pendingDrivers?.some((driver) => driver.publicId === driverId),
-    ).toBe(true);
+    expect(pendingDrivers?.some((driver) => driver.publicId === driverId)).toBe(
+      true,
+    );
 
     const detailRes = await request(ctx.app.getHttpServer())
       .get(`/api/admin/drivers/${driverId}`)
@@ -149,7 +159,8 @@ describeFlow('Driver onboarding + vehicle lifecycle (e2e)', () => {
       .send({ email: driverSeed.email, password: driverSeed.password })
       .expect(200);
 
-    const driverApprovedToken = driverLoginApproved.body?.data?.token as string;
+    const driverApprovedToken = driverLoginApproved.body?.data
+      ?.accessToken as string;
 
     const vehicleRes = await request(ctx.app.getHttpServer())
       .post('/api/vehicles')

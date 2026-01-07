@@ -337,9 +337,9 @@ export class BookingsService {
     });
   }
 
-  private async getApprovedDriver(userId: string): Promise<Driver> {
+  private async getApprovedDriver(businessUserId: string): Promise<Driver> {
     const driver = await this.driverRepository.findOne({
-      where: { userId },
+      where: { businessUserId },
     });
 
     if (!driver) {
@@ -362,7 +362,7 @@ export class BookingsService {
     context?: AuthContext,
   ): Promise<{ message: string; bookingId?: string; otp?: string }> {
     const profile = await this.profileRepository.findOne({
-      where: { userId: passengerId },
+      where: { businessUserId: passengerId },
     });
 
     if (!profile) {

@@ -59,14 +59,17 @@ export class RoutesService {
 
   private async ensureRouteAccess(
     route: Route,
-    userId: string,
+    businessUserId: string,
   ): Promise<void> {
-    if (route.driver?.userId && route.driver.userId === userId) {
+    if (
+      route.driver?.businessUserId &&
+      route.driver.businessUserId === businessUserId
+    ) {
       return;
     }
 
     const booking = await this.bookingRepository.findOne({
-      where: { routeId: route.id, passengerId: userId },
+      where: { routeId: route.id, passengerId: businessUserId },
     });
 
     if (booking) {
@@ -76,9 +79,9 @@ export class RoutesService {
     throw new NotFoundException(ErrorMessages.ROUTES.ROUTE_NOT_FOUND);
   }
 
-  private async getApprovedDriver(userId: string): Promise<Driver> {
+  private async getApprovedDriver(businessUserId: string): Promise<Driver> {
     const driver = await this.driverRepository.findOne({
-      where: { userId },
+      where: { businessUserId },
     });
 
     if (!driver) {
@@ -96,9 +99,10 @@ export class RoutesService {
   async autoFinalizeExpiredRoutes(): Promise<void> {
     try {
       const now = new Date();
-      const today = `${now.getFullYear()}-${String(
-        now.getMonth() + 1,
-      ).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
+      const today = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(
+        2,
+        '0',
+      )}-${String(now.getDate()).padStart(2, '0')}`;
 
       const routes = await this.routeRepository.find({
         where: {
@@ -154,14 +158,14 @@ export class RoutesService {
   }
 
   async createRoute(
-    userId: string,
+    businessUserId: string,
     dto: CreateRouteDto,
     context?: AuthContext,
   ): Promise<{ message: string; routeId?: string }> {
-    const driver = await this.getApprovedDriver(userId);
+    const driver = await this.getApprovedDriver(businessUserId);
 
     const profile = await this.profileRepository.findOne({
-      where: { userId },
+      where: { businessUserId },
     });
 
     if (!profile) {
@@ -169,7 +173,9 @@ export class RoutesService {
     }
 
     if (profile.isBloqueadoPorRating || Number(profile.ratingPromedio) < 3) {
-      throw new ForbiddenException(ErrorMessages.ROUTES.DRIVER_BLOCKED_LOW_RATING);
+      throw new ForbiddenException(
+        ErrorMessages.ROUTES.DRIVER_BLOCKED_LOW_RATING,
+      );
     }
 
     const activeVehicle = await this.vehicleRepository.findOne({
@@ -220,7 +226,7 @@ export class RoutesService {
 
     await this.auditService.logEvent({
       action: AuditAction.ROUTE_CREATED,
-      userId,
+      userId: businessUserId,
       result: AuditResult.SUCCESS,
       ipAddress: context?.ip,
       userAgent: context?.userAgent,
@@ -234,11 +240,11 @@ export class RoutesService {
   }
 
   async getMyRoutes(
-    userId: string,
+    businessUserId: string,
     estado?: string,
   ): Promise<{ message: string; data?: Route[] }> {
     const driver = await this.driverRepository.findOne({
-      where: { userId },
+      where: { businessUserId },
     });
 
     if (!driver) {
@@ -248,7 +254,9 @@ export class RoutesService {
     const whereClause: Record<string, unknown> = { driverId: driver.id };
     if (estado) {
       if (!Object.values(EstadoRutaEnum).includes(estado as EstadoRutaEnum)) {
-        throw new BadRequestException(ErrorMessages.VALIDATION.INVALID_FORMAT('estado'));
+        throw new BadRequestException(
+          ErrorMessages.VALIDATION.INVALID_FORMAT('estado'),
+        );
       }
       whereClause.estado = estado;
     }
@@ -267,7 +275,10 @@ export class RoutesService {
 
   async getAvailableRoutes(
     dto: SearchRoutesDto,
-  ): Promise<{ message: string; data?: ReturnType<typeof this.mapRouteForListing>[] }> {
+  ): Promise<{
+    message: string;
+    data?: ReturnType<typeof this.mapRouteForListing>[];
+  }> {
     const radiusKm = dto.radiusKm || 1;
 
     const whereClause: Record<string, unknown> = {
@@ -304,7 +315,9 @@ export class RoutesService {
           ? { route, distance: minDistance }
           : null;
       })
-      .filter((item): item is { route: Route; distance: number } => item !== null)
+      .filter(
+        (item): item is { route: Route; distance: number } => item !== null,
+      )
       .sort((a, b) => a.distance - b.distance);
 
     const data = filtered.map((item) =>
@@ -351,7 +364,7 @@ export class RoutesService {
   }
 
   async getRouteById(
-    userId: string,
+    businessUserId: string,
     routeId: string,
   ): Promise<{ message: string; data?: Route }> {
     const route = await this.routeRepository.findOne({
@@ -363,7 +376,7 @@ export class RoutesService {
       throw new NotFoundException(ErrorMessages.ROUTES.ROUTE_NOT_FOUND);
     }
 
-    await this.ensureRouteAccess(route, userId);
+    await this.ensureRouteAccess(route, businessUserId);
 
     return {
       message: ErrorMessages.ROUTES.ROUTE_DETAIL,
@@ -372,7 +385,7 @@ export class RoutesService {
   }
 
   async getRouteMap(
-    userId: string,
+    businessUserId: string,
     routeId: string,
   ): Promise<{ message: string; stops?: RouteStop[] }> {
     const route = await this.routeRepository.findOne({
@@ -396,12 +409,12 @@ export class RoutesService {
   }
 
   async addRouteStop(
-    userId: string,
+    businessUserId: string,
     routeId: string,
     dto: AddStopDto,
     context?: AuthContext,
   ): Promise<{ message: string }> {
-    const driver = await this.getApprovedDriver(userId);
+    const driver = await this.getApprovedDriver(businessUserId);
 
     const routeWhere = buildIdWhere<Route>(routeId).map((where) => ({
       ...where,
@@ -441,7 +454,7 @@ export class RoutesService {
 
     await this.auditService.logEvent({
       action: AuditAction.ROUTE_UPDATED,
-      userId,
+      userId: businessUserId,
       result: AuditResult.SUCCESS,
       ipAddress: context?.ip,
       userAgent: context?.userAgent,
@@ -454,11 +467,11 @@ export class RoutesService {
   }
 
   async cancelRoute(
-    userId: string,
+    businessUserId: string,
     routeId: string,
     context?: AuthContext,
   ): Promise<{ message: string }> {
-    const driver = await this.getApprovedDriver(userId);
+    const driver = await this.getApprovedDriver(businessUserId);
 
     const route = await this.routeRepository.findOne({
       where: buildIdWhere<Route>(routeId).map((where) => ({
@@ -478,7 +491,7 @@ export class RoutesService {
     const isLateCancellation = this.isLateCancellation(route);
     const penaltyApplied =
       isLateCancellation &&
-      (await this.applyLateCancellationPenalty(driver.userId));
+      (await this.applyLateCancellationPenalty(driver.businessUserId));
 
     route.estado = EstadoRutaEnum.CANCELADA;
     route.mensaje = ErrorMessages.ROUTES.ROUTE_CANCELLED;
@@ -501,7 +514,11 @@ export class RoutesService {
     for (const payment of payments) {
       if (payment.status === EstadoPagoEnum.PAID) {
         try {
-          await this.paymentsService.reversePayment(payment.id, userId, context);
+          await this.paymentsService.reversePayment(
+            payment.id,
+            businessUserId,
+            context,
+          );
         } catch {
           payment.status = EstadoPagoEnum.FAILED;
           payment.failureReason = 'Refund failed after route cancel';
@@ -517,7 +534,7 @@ export class RoutesService {
 
     await this.auditService.logEvent({
       action: AuditAction.ROUTE_CANCELLED_DRIVER,
-      userId,
+      userId: businessUserId,
       result: AuditResult.SUCCESS,
       ipAddress: context?.ip,
       userAgent: context?.userAgent,
@@ -530,11 +547,11 @@ export class RoutesService {
   }
 
   async finalizeRoute(
-    userId: string,
+    businessUserId: string,
     routeId: string,
     context?: AuthContext,
   ): Promise<{ message: string }> {
-    const driver = await this.getApprovedDriver(userId);
+    const driver = await this.getApprovedDriver(businessUserId);
 
     const route = await this.routeRepository.findOne({
       where: buildIdWhere<Route>(routeId).map((where) => ({
@@ -567,7 +584,7 @@ export class RoutesService {
 
     await this.auditService.logEvent({
       action: AuditAction.ROUTE_COMPLETED,
-      userId,
+      userId: businessUserId,
       result: AuditResult.SUCCESS,
       ipAddress: context?.ip,
       userAgent: context?.userAgent,
@@ -589,10 +606,10 @@ export class RoutesService {
   }
 
   private async applyLateCancellationPenalty(
-    userId: string,
+    businessUserId: string,
   ): Promise<boolean> {
     const profile = await this.profileRepository.findOne({
-      where: { userId },
+      where: { businessUserId },
     });
 
     if (!profile) {
@@ -600,9 +617,7 @@ export class RoutesService {
     }
 
     const currentRating = Number(profile.ratingPromedio ?? 5);
-    const nextRating = Number(
-      Math.max(currentRating - 1, 1).toFixed(2),
-    );
+    const nextRating = Number(Math.max(currentRating - 1, 1).toFixed(2));
 
     profile.ratingPromedio = nextRating;
     profile.isBloqueadoPorRating = nextRating < 3;
@@ -610,7 +625,7 @@ export class RoutesService {
     await this.profileRepository.save(profile);
 
     this.logger.warn(
-      `Driver ${userId} rating penalized to ${nextRating} after late cancellation`,
+      `Driver ${businessUserId} rating penalized to ${nextRating} after late cancellation`,
     );
 
     return true;

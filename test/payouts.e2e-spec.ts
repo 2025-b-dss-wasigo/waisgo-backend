@@ -3,16 +3,25 @@ import { truncateAllTables } from './helpers/db';
 import { Payout } from '../src/modules/payments/Models/payout.entity';
 import { RolUsuarioEnum } from '../src/modules/auth/Enum';
 import { EstadoReservaEnum } from '../src/modules/bookings/Enums';
-import { MetodoPagoEnum, EstadoPagoEnum, EstadoPayoutEnum } from '../src/modules/payments/Enums';
+import {
+  MetodoPagoEnum,
+  EstadoPagoEnum,
+  EstadoPayoutEnum,
+} from '../src/modules/payments/Enums';
 import { mockPaypalFetch, restoreFetch } from './helpers/paypal-mock';
 import { createTestApp, TestAppContext } from './helpers/app';
-import { buildUserSeed, loginUser, registerUser, setUserRole } from './helpers/auth';
+import {
+  buildUserSeed,
+  loginUser,
+  registerUser,
+  setUserRole,
+} from './helpers/auth';
 import {
   createBooking,
   createDriver,
   createPayment,
   createRoute,
-  getBusinessUserByEmail,
+  getBusinessUserFromAuth,
 } from './helpers/fixtures';
 
 const hasTestDb = Boolean(process.env.TEST_DB_HOST);
@@ -57,7 +66,12 @@ describePayouts('Payouts flow (e2e)', () => {
     });
 
     await registerUser(ctx.app, adminSeed);
-    await setUserRole(ctx.dataSource, adminSeed.email, RolUsuarioEnum.ADMIN, true);
+    await setUserRole(
+      ctx.dataSource,
+      adminSeed.email,
+      RolUsuarioEnum.ADMIN,
+      true,
+    );
     const adminToken = await loginUser(
       ctx.app,
       adminSeed.email,
@@ -79,17 +93,19 @@ describePayouts('Payouts flow (e2e)', () => {
 
     await registerUser(ctx.app, passengerSeed);
 
-    const driverBusiness = await getBusinessUserByEmail(
+    const driverBusiness = await getBusinessUserFromAuth(
+      ctx.app,
       ctx.dataSource,
       driverSeed.email,
     );
-    const passengerBusiness = await getBusinessUserByEmail(
+    const passengerBusiness = await getBusinessUserFromAuth(
+      ctx.app,
       ctx.dataSource,
       passengerSeed.email,
     );
 
     const driver = await createDriver(ctx.dataSource, {
-      userId: driverBusiness?.id as string,
+      businessUserId: driverBusiness?.id as string,
       paypalEmail: 'driver@epn.edu.ec',
     });
 

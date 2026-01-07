@@ -22,6 +22,7 @@ import { RatingsModule } from './modules/ratings/ratings.module';
 import { StorageModule } from './modules/storage/storage.module';
 import { VehicleModule } from './modules/vehicle/vehicle.module';
 import { AdminModule } from './modules/admin/admin.module';
+import { IdentityModule } from './modules/identity';
 
 @Module({
   imports: [
@@ -79,6 +80,7 @@ import { AdminModule } from './modules/admin/admin.module';
     MailModule,
     AuditModule,
     CommonModule,
+    IdentityModule,
     AuthModule,
     VerificationModule,
     OtpModule,

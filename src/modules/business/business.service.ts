@@ -4,7 +4,6 @@ import {
   NotFoundException,
   Logger,
   BadRequestException,
-  ConflictException,
   InternalServerErrorException,
 } from '@nestjs/common';
 import { randomInt } from 'node:crypto';
@@ -19,11 +18,9 @@ import { AuditService } from '../audit/audit.service';
 import { AuditAction, AuditResult } from '../audit/Enums';
 import type { AuthContext } from '../common/types';
 import { generatePublicId } from '../common/utils/public-id.util';
-import { AuthUser } from '../auth/Models/auth-user.entity';
 import { RedisService } from 'src/redis/redis.service';
 import { parseDurationToSeconds } from '../common/utils/duration.util';
 import { hasValidFileSignature } from '../common/utils/file-validation.util';
-import { EstadoVerificacionEnum } from '../auth/Enum';
 
 type AliasPrefix = 'Pasajero' | 'Conductor';
 
@@ -45,8 +42,6 @@ export class BusinessService {
     private readonly businessUserRepo: Repository<BusinessUser>,
     @InjectRepository(UserProfile)
     private readonly profileRepo: Repository<UserProfile>,
-    @InjectRepository(AuthUser)
-    private readonly authUserRepo: Repository<AuthUser>,
     private readonly storageService: StorageService,
     private readonly config: ConfigService,
     private readonly auditService: AuditService,
@@ -74,14 +69,17 @@ export class BusinessService {
     );
   }
 
-  async updateAlias(userId: string, prefix: AliasPrefix): Promise<void> {
+  async updateAlias(
+    businessUserId: string,
+    prefix: AliasPrefix,
+  ): Promise<void> {
     const user = await this.businessUserRepo.findOne({
-      where: { id: userId, isDeleted: false },
+      where: { id: businessUserId, isDeleted: false },
     });
 
     if (!user) {
       this.logger.warn(
-        `Business user not found when updating alias: ${userId}`,
+        `Business user not found when updating alias: ${businessUserId}`,
       );
       return;
     }
@@ -97,134 +95,94 @@ export class BusinessService {
     await this.businessUserRepo.save(user);
   }
 
-  async createFromAuth(
-    userId: string,
-    data: {
-      email: string;
-      nombre: string;
-      apellido: string;
-      celular: string;
-    },
-  ): Promise<{ publicId: string; alias: string }> {
+  /**
+   * Crea un usuario de negocio.
+   * IMPORTANTE: Ya no recibe userId de auth - genera su propio UUID.
+   * La correlación con auth se hace a través del IdentityResolverService.
+   */
+  async createFromAuth(data: {
+    nombre: string;
+    apellido: string;
+    celular: string;
+  }): Promise<{ businessUserId: string; publicId: string; alias: string }> {
     const publicId = await generatePublicId(this.businessUserRepo, 'USR');
     const alias = await this.generateAliasWithPrefix(
       this.businessUserRepo,
       'Pasajero',
     );
+
+    // El ID se genera automáticamente (PrimaryGeneratedColumn)
     const businessUser = this.businessUserRepo.create({
-      id: userId,
       publicId,
-      email: data.email,
       alias,
     });
 
+    const savedUser = await this.businessUserRepo.save(businessUser);
+
     const profile = this.profileRepo.create({
-      userId,
+      businessUserId: savedUser.id,
       nombre: data.nombre,
       apellido: data.apellido,
       celular: data.celular,
     });
 
-    businessUser.profile = profile;
+    await this.profileRepo.save(profile);
 
-    await this.businessUserRepo.save(businessUser);
+    this.logger.log(`Business user created: ${savedUser.id}`);
 
-    this.logger.log(`Business user created: ${userId}`);
-
-    return { publicId, alias };
+    return {
+      businessUserId: savedUser.id,
+      publicId,
+      alias,
+    };
   }
 
   /**
-   * Crea un usuario de negocio usando un EntityManager (para transacciones)
+   * Crea un usuario de negocio usando un EntityManager (para transacciones).
+   * IMPORTANTE: Ya no recibe userId de auth - genera su propio UUID.
+   * La correlación con auth se hace a través del IdentityResolverService.
    */
   async createFromAuthWithManager(
     manager: EntityManager,
-    userId: string,
     data: {
-      email: string;
       nombre: string;
       apellido: string;
       celular: string;
     },
-  ): Promise<{ publicId: string; alias: string }> {
+  ): Promise<{ businessUserId: string; publicId: string; alias: string }> {
     const businessRepo = manager.getRepository(BusinessUser);
     const publicId = await generatePublicId(businessRepo, 'USR');
     const alias = await this.generateAliasWithPrefix(businessRepo, 'Pasajero');
+
+    // El ID se genera automáticamente (PrimaryGeneratedColumn)
     const businessUser = manager.create(BusinessUser, {
-      id: userId,
       publicId,
-      email: data.email,
       alias,
     });
 
+    const savedUser = await manager.save(businessUser);
+
     const profile = manager.create(UserProfile, {
-      userId,
+      businessUserId: savedUser.id,
       nombre: data.nombre,
       apellido: data.apellido,
       celular: data.celular,
     });
 
-    businessUser.profile = profile;
+    await manager.save(profile);
 
-    await manager.save(businessUser);
+    this.logger.log(`Business user created with transaction: ${savedUser.id}`);
 
-    this.logger.log(`Business user created with transaction: ${userId}`);
-
-    return { publicId, alias };
-  }
-
-  /**
-   * Valida y actualiza el email si fue modificado
-   */
-  private async updateEmailIfChanged(
-    userId: string,
-    newEmail: string,
-  ): Promise<{ businessUser: BusinessUser; authUser: AuthUser }> {
-    const normalizedEmail = newEmail.toLowerCase().trim();
-
-    const businessUser = await this.businessUserRepo.findOne({
-      where: { id: userId, isDeleted: false },
-    });
-
-    if (!businessUser) {
-      throw new NotFoundException(ErrorMessages.USER.NOT_FOUND);
-    }
-
-    const authUser = await this.authUserRepo.findOne({
-      where: { id: userId },
-    });
-
-    if (!authUser) {
-      throw new NotFoundException(ErrorMessages.USER.NOT_FOUND);
-    }
-
-    if (authUser.estadoVerificacion === EstadoVerificacionEnum.VERIFICADO) {
-      throw new BadRequestException(ErrorMessages.USER.EMAIL_CHANGE_LOCKED);
-    }
-
-    if (businessUser.email.toLowerCase() !== normalizedEmail) {
-      const existingAuth = await this.authUserRepo.findOne({
-        where: { email: normalizedEmail },
-      });
-
-      if (existingAuth && existingAuth.id !== userId) {
-        throw new ConflictException(ErrorMessages.AUTH.EMAIL_ALREADY_EXISTS);
-      }
-
-      businessUser.email = normalizedEmail;
-      authUser.email = normalizedEmail;
-    }
-
-    return { businessUser, authUser };
+    return { businessUserId: savedUser.id, publicId, alias };
   }
 
   async updateProfile(
-    userId: string,
+    businessUserId: string,
     dto: UpdateProfileDto,
     context?: AuthContext,
   ): Promise<{ message: string }> {
     const profile = await this.profileRepo.findOne({
-      where: { userId },
+      where: { businessUserId },
     });
 
     if (!profile) {
@@ -244,11 +202,11 @@ export class BusinessService {
 
     await this.profileRepo.save(profile);
 
-    this.logger.log(`Profile updated for user: ${userId}`);
+    this.logger.log(`Profile updated for business user: ${businessUserId}`);
 
     await this.auditService.logEvent({
       action: AuditAction.PROFILE_UPDATE,
-      userId,
+      userId: businessUserId,
       result: AuditResult.SUCCESS,
       ipAddress: context?.ip,
       userAgent: context?.userAgent,
@@ -258,9 +216,16 @@ export class BusinessService {
     return { message: ErrorMessages.USER.PROFILE_UPDATED };
   }
 
-  async softDeleteUser(userId: string, context?: AuthContext): Promise<void> {
+  /**
+   * Soft delete del usuario de business.
+   * NOTA: La invalidación del auth_user debe hacerse por separado en AuthService.
+   */
+  async softDeleteUser(
+    businessUserId: string,
+    context?: AuthContext,
+  ): Promise<void> {
     const result = await this.businessUserRepo.update(
-      { id: userId, isDeleted: false },
+      { id: businessUserId, isDeleted: false },
       {
         isDeleted: true,
         deletedAt: new Date(),
@@ -268,28 +233,18 @@ export class BusinessService {
     );
 
     if (result.affected === 0) {
-      this.logger.warn(`User not found or already deleted: ${userId}`);
+      this.logger.warn(`User not found or already deleted: ${businessUserId}`);
     } else {
-      const blockedUntil = new Date();
-      blockedUntil.setFullYear(
-        blockedUntil.getFullYear() + this.SOFT_DELETE_BLOCK_YEARS,
-      );
-
-      await this.authUserRepo.update(
-        { id: userId },
-        { bloqueadoHasta: blockedUntil },
-      );
-
       await this.redisService.revokeUserSessions(
-        userId,
+        businessUserId,
         this.getSessionRevokeTtlSeconds(),
       );
 
-      this.logger.log(`User soft deleted: ${userId}`);
+      this.logger.log(`User soft deleted: ${businessUserId}`);
 
       await this.auditService.logEvent({
         action: AuditAction.ACCOUNT_DEACTIVATED,
-        userId,
+        userId: businessUserId,
         result: AuditResult.SUCCESS,
         ipAddress: context?.ip,
         userAgent: context?.userAgent,
@@ -297,9 +252,9 @@ export class BusinessService {
     }
   }
 
-  async getDisplayName(userId: string): Promise<string> {
+  async getDisplayName(businessUserId: string): Promise<string> {
     const user = await this.businessUserRepo.findOne({
-      where: { id: userId },
+      where: { id: businessUserId },
       relations: ['profile'],
     });
 
@@ -320,16 +275,16 @@ export class BusinessService {
     return 'Usuario';
   }
 
-  async findByUserId(userId: string): Promise<BusinessUser | null> {
+  async findById(businessUserId: string): Promise<BusinessUser | null> {
     return this.businessUserRepo.findOne({
-      where: { id: userId, isDeleted: false },
+      where: { id: businessUserId, isDeleted: false },
       relations: ['profile'],
     });
   }
 
-  async getMyProfile(userId: string) {
+  async getMyProfile(businessUserId: string) {
     const user = await this.businessUserRepo.findOne({
-      where: { id: userId, isDeleted: false },
+      where: { id: businessUserId, isDeleted: false },
       relations: ['profile'],
     });
 
@@ -348,11 +303,11 @@ export class BusinessService {
         )
       : await this.getDefaultAvatarUrl();
 
+    // NOTA: email ya no está en business_users, debe obtenerse de auth si es necesario
     return {
       id: user.id,
       publicId: user.publicId,
       alias: user.alias,
-      email: user.email,
       nombre: user.profile.nombre,
       apellido: user.profile.apellido,
       celular: user.profile.celular,
@@ -363,7 +318,7 @@ export class BusinessService {
   }
 
   async updateProfilePhoto(
-    userId: string,
+    businessUserId: string,
     file: Express.Multer.File,
     context?: AuthContext,
   ): Promise<{ message: string }> {
@@ -387,7 +342,9 @@ export class BusinessService {
       throw new BadRequestException(ErrorMessages.DRIVER.FILE_SIGNATURE);
     }
 
-    const profile = await this.profileRepo.findOne({ where: { userId } });
+    const profile = await this.profileRepo.findOne({
+      where: { businessUserId },
+    });
 
     if (!profile) {
       throw new NotFoundException(ErrorMessages.USER.PROFILE_NOT_FOUND);
@@ -396,7 +353,7 @@ export class BusinessService {
     const objectPath = await this.storageService.upload({
       bucket: this.config.getOrThrow('STORAGE_PROFILE_BUCKET'),
       folder: 'avatars',
-      filename: `user-${userId}.jpg`,
+      filename: `user-${businessUserId}.jpg`,
       buffer: file.buffer,
       mimetype: file.mimetype,
     });
@@ -406,7 +363,7 @@ export class BusinessService {
 
     await this.auditService.logEvent({
       action: AuditAction.PROFILE_PHOTO_UPDATE,
-      userId,
+      userId: businessUserId,
       result: AuditResult.SUCCESS,
       ipAddress: context?.ip,
       userAgent: context?.userAgent,

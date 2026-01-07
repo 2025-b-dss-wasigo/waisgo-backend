@@ -19,6 +19,7 @@ interface JwtPayloadInternal {
   role: RolUsuarioEnum;
   isVerified: boolean;
   alias?: string;
+  publicId?: string;
   jti: string;
   iat: number;
   exp: number;
@@ -93,12 +94,14 @@ export class JweAuthGuard implements CanActivate {
         throw new UnauthorizedException(ErrorMessages.SYSTEM.SESSION_EXPIRED);
       }
 
+      // El sub ahora es businessUserId, desacoplado de authUserId
       request.user = {
         id: jwtPayload.sub,
         sub: jwtPayload.sub,
         role: jwtPayload.role,
         isVerified: Boolean(jwtPayload.isVerified),
         alias: jwtPayload.alias ?? '',
+        publicId: jwtPayload.publicId ?? '',
         jti: jwtPayload.jti,
         exp: jwtPayload.exp,
         iat: jwtPayload.iat,

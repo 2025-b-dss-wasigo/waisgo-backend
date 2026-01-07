@@ -37,6 +37,15 @@ describe('DriversService', () => {
     get: jest.fn(),
   };
 
+  const identityResolver = {
+    resolveAuthUserId: jest.fn(),
+    resolveBusinessUserId: jest.fn(),
+  };
+
+  const authUserRepo = {
+    findOne: jest.fn(),
+  };
+
   const context: AuthContext = { ip: '127.0.0.1', userAgent: 'jest' };
 
   let service: DriversService;
@@ -48,11 +57,13 @@ describe('DriversService', () => {
       driverRepo as never,
       documentRepo as never,
       businessUserRepo as never,
+      authUserRepo as never,
       storageService as never,
       auditService as never,
       mailService as never,
       authService as never,
       configService as never,
+      identityResolver as never,
     );
   });
 

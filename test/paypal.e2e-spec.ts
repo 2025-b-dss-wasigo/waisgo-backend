@@ -17,7 +17,7 @@ import {
   createDriver,
   createRoute,
   createVehicle,
-  getBusinessUserByEmail,
+  getBusinessUserFromAuth,
 } from './helpers/fixtures';
 import { Payment } from '../src/modules/payments/Models/payment.entity';
 
@@ -61,13 +61,18 @@ describePaypal('PayPal flow (e2e)', () => {
       celular: '0980000000',
     });
 
-    const { token: passengerToken, authUser: passengerAuth } =
-      await registerAndVerifyUser(
-        ctx.app,
-        ctx.dataSource,
-        ctx.redis,
-        passengerSeed,
-      );
+    const { token: passengerToken } = await registerAndVerifyUser(
+      ctx.app,
+      ctx.dataSource,
+      ctx.redis,
+      passengerSeed,
+    );
+
+    const passengerBusiness = await getBusinessUserFromAuth(
+      ctx.app,
+      ctx.dataSource,
+      passengerSeed.email,
+    );
 
     await registerUser(ctx.app, driverSeed);
     await setUserRole(
@@ -77,12 +82,13 @@ describePaypal('PayPal flow (e2e)', () => {
       true,
     );
 
-    const driverBusiness = await getBusinessUserByEmail(
+    const driverBusiness = await getBusinessUserFromAuth(
+      ctx.app,
       ctx.dataSource,
       driverSeed.email,
     );
     const driver = await createDriver(ctx.dataSource, {
-      userId: driverBusiness?.id as string,
+      businessUserId: driverBusiness?.id as string,
       paypalEmail: 'driver@epn.edu.ec',
     });
     await createVehicle(ctx.dataSource, {
@@ -102,7 +108,7 @@ describePaypal('PayPal flow (e2e)', () => {
 
     const booking = await createBooking(ctx.dataSource, {
       routeId: route.id,
-      passengerId: passengerAuth.id,
+      passengerId: passengerBusiness!.id,
       metodoPago: MetodoPagoEnum.PAYPAL,
     });
 
@@ -129,7 +135,12 @@ describePaypal('PayPal flow (e2e)', () => {
       .expect(200);
 
     await registerUser(ctx.app, adminSeed);
-    await setUserRole(ctx.dataSource, adminSeed.email, RolUsuarioEnum.ADMIN, true);
+    await setUserRole(
+      ctx.dataSource,
+      adminSeed.email,
+      RolUsuarioEnum.ADMIN,
+      true,
+    );
     const adminToken = await loginUser(
       ctx.app,
       adminSeed.email,
@@ -142,7 +153,9 @@ describePaypal('PayPal flow (e2e)', () => {
       .expect(200);
 
     const paymentRepo = ctx.dataSource.getRepository(Payment);
-    const payment = await paymentRepo.findOne({ where: { publicId: paymentId } });
+    const payment = await paymentRepo.findOne({
+      where: { publicId: paymentId },
+    });
     expect(payment?.status).toBe(EstadoPagoEnum.REVERSED);
   });
 });

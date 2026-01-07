@@ -24,6 +24,11 @@ describe('VerificationService', () => {
     logEvent: jest.fn(),
   };
 
+  const identityResolver = {
+    resolveAuthUserId: jest.fn(),
+    resolveBusinessUserId: jest.fn(),
+  };
+
   const validUserId = 'd290f1ee-6c54-4b01-90e6-d701748f0851';
 
   let service: VerificationService;
@@ -31,12 +36,14 @@ describe('VerificationService', () => {
   beforeEach(() => {
     jest.clearAllMocks();
     auditService.logEvent.mockResolvedValue(undefined);
+    identityResolver.resolveAuthUserId.mockResolvedValue('auth-user-id');
     service = new VerificationService(
       authService as never,
       otpService as never,
       businessService as never,
       mailService as never,
       auditService as never,
+      identityResolver as never,
     );
   });
 
@@ -107,9 +114,11 @@ describe('VerificationService', () => {
 
     await service.confirmVerification(validUserId, ' 123456 ', context);
 
-    expect(otpService.validateOtp).toHaveBeenCalledWith(validUserId, '123456');
-    expect(authService.verifyUser).toHaveBeenCalledWith(validUserId);
-    expect(otpService.invalidateOtp).toHaveBeenCalledWith(validUserId);
+    // El servicio resuelve authUserId y lo usa para validar OTP
+    expect(identityResolver.resolveAuthUserId).toHaveBeenCalledWith(validUserId);
+    expect(otpService.validateOtp).toHaveBeenCalledWith('auth-user-id', '123456');
+    expect(authService.verifyUser).toHaveBeenCalledWith('auth-user-id');
+    expect(otpService.invalidateOtp).toHaveBeenCalledWith('auth-user-id');
     expect(auditService.logEvent).toHaveBeenCalledWith(
       expect.objectContaining({
         action: AuditAction.VERIFICATION_SUCCESS,

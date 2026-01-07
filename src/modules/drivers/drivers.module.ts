@@ -6,6 +6,7 @@ import { Driver } from './Models/driver.entity';
 import { DriverDocument } from './Models/driver-document.entity';
 import { Vehicle } from './Models/vehicle.entity';
 import { BusinessUser } from '../business/Models/business-user.entity';
+import { AuthUser } from '../auth/Models/auth-user.entity';
 import { StorageModule } from '../storage/storage.module';
 import { AuditModule } from '../audit/audit.module';
 import { MailModule } from '../mail/mail.module';
@@ -13,7 +14,13 @@ import { AuthModule } from '../auth/auth.module';
 
 @Module({
   imports: [
-    TypeOrmModule.forFeature([Driver, DriverDocument, Vehicle, BusinessUser]),
+    TypeOrmModule.forFeature([
+      Driver,
+      DriverDocument,
+      Vehicle,
+      BusinessUser,
+      AuthUser,
+    ]),
     StorageModule,
     AuditModule,
     MailModule,

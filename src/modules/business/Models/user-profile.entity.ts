@@ -10,6 +10,12 @@ import {
 } from 'typeorm';
 import { BusinessUser } from './business-user.entity';
 
+/**
+ * Perfil de usuario con datos personales y estadísticas.
+ *
+ * IMPORTANTE: businessUserId referencia a business.business_users.id,
+ * NO a auth.auth_users.id. Los schemas están desacoplados.
+ */
 @Entity({ schema: 'business', name: 'user_profiles' })
 @Index('IDX_user_profiles_rating_promedio', ['ratingPromedio'])
 @Index('IDX_user_profiles_is_bloqueado_por_rating', ['isBloqueadoPorRating'])
@@ -18,10 +24,10 @@ export class UserProfile {
   id: string;
 
   @Column({ type: 'uuid', unique: true })
-  userId: string;
+  businessUserId: string;
 
   @OneToOne(() => BusinessUser, (user) => user.profile, { onDelete: 'CASCADE' })
-  @JoinColumn({ name: 'userId' })
+  @JoinColumn({ name: 'businessUserId' })
   user: BusinessUser;
 
   @Column({ type: 'varchar', length: 15 })
