@@ -42,7 +42,7 @@ describeFlow('Auth password flows (e2e)', () => {
       .send({ email, password })
       .expect(200);
 
-    const oldToken = loginRes.body?.data?.token as string;
+    const oldToken = loginRes.body?.data?.accessToken as string;
     expect(oldToken).toBeDefined();
 
     await new Promise((resolve) => setTimeout(resolve, 1100));
@@ -93,7 +93,7 @@ describeFlow('Auth password flows (e2e)', () => {
       .send({ email, password })
       .expect(200);
 
-    const token = loginRes.body?.data?.token as string;
+    const token = loginRes.body?.data?.accessToken as string;
     expect(token).toBeDefined();
 
     await request(ctx.app.getHttpServer())
@@ -107,7 +107,7 @@ describeFlow('Auth password flows (e2e)', () => {
       .send({ email, password: newPassword })
       .expect(200);
 
-    const newToken = loginNew.body?.data?.token as string;
+    const newToken = loginNew.body?.data?.accessToken as string;
     expect(newToken).toBeDefined();
 
     await request(ctx.app.getHttpServer())

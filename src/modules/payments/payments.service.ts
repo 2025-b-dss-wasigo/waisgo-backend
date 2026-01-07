@@ -472,7 +472,7 @@ export class PaymentsService {
     status?: string,
   ): Promise<{ message: string; data?: Payment[] }> {
     const driver = await this.driverRepository.findOne({
-      where: { userId: driverUserId },
+      where: { businessUserId: driverUserId },
     });
 
     if (!driver) {

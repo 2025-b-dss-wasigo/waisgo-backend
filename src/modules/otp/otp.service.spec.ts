@@ -16,12 +16,14 @@ describe('OtpService', () => {
 
   beforeEach(() => {
     jest.clearAllMocks();
-    configService.get.mockImplementation((key: string, defaultValue?: number) => {
-      if (key === 'OTP_EXPIRATION_MINUTES') return 2;
-      if (key === 'MAX_OTP_ATTEMPTS') return 3;
-      if (key === 'MAX_OTP_RESENDS') return 2;
-      return defaultValue;
-    });
+    configService.get.mockImplementation(
+      (key: string, defaultValue?: number) => {
+        if (key === 'OTP_EXPIRATION_MINUTES') return 2;
+        if (key === 'MAX_OTP_ATTEMPTS') return 3;
+        if (key === 'MAX_OTP_RESENDS') return 2;
+        return defaultValue;
+      },
+    );
     service = new OtpService(redisService as never, configService as never);
   });
 
@@ -41,9 +43,7 @@ describe('OtpService', () => {
 
   it('stores otp session and returns expiry minutes', async () => {
     redisService.get.mockResolvedValue('1');
-    const otpSpy = jest
-      .spyOn(service, 'generateOtp')
-      .mockReturnValue('123456');
+    const otpSpy = jest.spyOn(service, 'generateOtp').mockReturnValue('123456');
 
     const result = await service.sendOtp('user-id');
 
@@ -130,9 +130,11 @@ describe('OtpService', () => {
   });
 
   it('secureCompare returns false for mismatched lengths', () => {
-    const secureCompare = (service as {
-      secureCompare: (a: string, b: string) => boolean;
-    }).secureCompare;
+    const secureCompare = (
+      service as unknown as {
+        secureCompare: (a: string, b: string) => boolean;
+      }
+    ).secureCompare;
 
     expect(secureCompare('123', '12')).toBe(false);
   });

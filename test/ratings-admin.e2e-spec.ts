@@ -6,11 +6,16 @@ import { RolUsuarioEnum } from '../src/modules/auth/Enum';
 import { CampusOrigenEnum, EstadoRutaEnum } from '../src/modules/routes/Enums';
 import { generatePublicId } from '../src/modules/common/utils/public-id.util';
 import { createTestApp, TestAppContext } from './helpers/app';
-import { buildUserSeed, loginUser, registerUser, setUserRole } from './helpers/auth';
+import {
+  buildUserSeed,
+  loginUser,
+  registerUser,
+  setUserRole,
+} from './helpers/auth';
 import {
   createDriver,
   createRoute,
-  getBusinessUserByEmail,
+  getBusinessUserFromAuth,
 } from './helpers/fixtures';
 
 const hasTestDb = Boolean(process.env.TEST_DB_HOST);
@@ -53,7 +58,12 @@ describeFlow('Admin ratings flows (e2e)', () => {
     await registerUser(ctx.app, driverSeed);
     await registerUser(ctx.app, passengerSeed);
 
-    await setUserRole(ctx.dataSource, adminSeed.email, RolUsuarioEnum.ADMIN, true);
+    await setUserRole(
+      ctx.dataSource,
+      adminSeed.email,
+      RolUsuarioEnum.ADMIN,
+      true,
+    );
     await setUserRole(
       ctx.dataSource,
       driverSeed.email,
@@ -76,17 +86,19 @@ describeFlow('Admin ratings flows (e2e)', () => {
     const profileRepo = ctx.dataSource.getRepository(UserProfile);
     const ratingRepo = ctx.dataSource.getRepository(Rating);
 
-    const driverBusiness = await getBusinessUserByEmail(
+    const driverBusiness = await getBusinessUserFromAuth(
+      ctx.app,
       ctx.dataSource,
       driverSeed.email,
     );
-    const passengerBusiness = await getBusinessUserByEmail(
+    const passengerBusiness = await getBusinessUserFromAuth(
+      ctx.app,
       ctx.dataSource,
       passengerSeed.email,
     );
 
     const driver = await createDriver(ctx.dataSource, {
-      userId: driverBusiness?.id as string,
+      businessUserId: driverBusiness?.id as string,
       paypalEmail: 'driver@epn.edu.ec',
     });
 
@@ -112,7 +124,7 @@ describeFlow('Admin ratings flows (e2e)', () => {
     await ratingRepo.save(rating);
 
     const passengerProfile = await profileRepo.findOne({
-      where: { userId: passengerBusiness?.id as string },
+      where: { businessUserId: passengerBusiness?.id as string },
     });
     if (passengerProfile) {
       passengerProfile.ratingPromedio = 2.5;

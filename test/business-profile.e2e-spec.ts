@@ -60,7 +60,9 @@ describeFlow('Business profile flows (e2e)', () => {
       .set('Authorization', `Bearer ${token}`)
       .expect(200);
 
-    expect(profileRes.body?.data?.email).toBe(seed.email);
+    // Business profile no longer includes email (security: decoupled from auth)
+    expect(profileRes.body?.data?.alias).toBeDefined();
+    expect(profileRes.body?.data?.nombre).toBeDefined();
 
     await request(ctx.app.getHttpServer())
       .patch('/api/business/profile')

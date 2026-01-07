@@ -19,7 +19,8 @@ export const envSchema = Joi.object({
   DB_MIGRATION_PASSWORD: Joi.string().required(),
 
   JWT_SECRET: Joi.string().length(32).required(),
-  JWT_EXPIRES_IN: Joi.string().default('8h'),
+  JWT_EXPIRES_IN: Joi.string().default('15m'),
+  JWT_REFRESH_EXPIRES_IN: Joi.string().default('7d'),
   OTP_SECRET: Joi.string().length(32).optional(),
 
   SWAGGER_ENABLED: Joi.boolean().optional(),
@@ -79,4 +80,10 @@ export const envSchema = Joi.object({
 
   // Identifiers
   ALLOW_UUID_IDENTIFIERS: Joi.boolean().default(true),
+
+  // Identity Decoupling (auth-business separation)
+  // Generate with: openssl rand -hex 32
+  IDENTITY_HASH_SECRET: Joi.string().min(32).required(),
+  // Generate with: openssl rand -hex 32 (must be exactly 32 bytes = 64 hex chars)
+  IDENTITY_ENCRYPTION_KEY: Joi.string().length(64).required(),
 });

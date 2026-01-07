@@ -14,7 +14,11 @@ import {
   registerUser,
   setUserRole,
 } from './helpers/auth';
-import { createDriver, createVehicle, getBusinessUserByEmail } from './helpers/fixtures';
+import {
+  createDriver,
+  createVehicle,
+  getBusinessUserFromAuth,
+} from './helpers/fixtures';
 
 const hasTestDb = Boolean(process.env.TEST_DB_HOST);
 const describeFlow = hasTestDb ? describe : describe.skip;
@@ -68,13 +72,14 @@ describeFlow('Routes + Bookings + OTP + Ratings (e2e)', () => {
       driverSeed.password,
     );
 
-    const driverBusiness = await getBusinessUserByEmail(
+    const driverBusiness = await getBusinessUserFromAuth(
+      ctx.app,
       ctx.dataSource,
       driverSeed.email,
     );
 
     const driver = await createDriver(ctx.dataSource, {
-      userId: driverBusiness?.id as string,
+      businessUserId: driverBusiness?.id as string,
       paypalEmail: 'driver@epn.edu.ec',
     });
 
@@ -93,9 +98,7 @@ describeFlow('Routes + Bookings + OTP + Ratings (e2e)', () => {
         destinoBase: 'Destino',
         asientosTotales: 2,
         precioPasajero: 2.5,
-        stops: [
-          { lat: -0.18, lng: -78.48, direccion: 'Parada 1' },
-        ],
+        stops: [{ lat: -0.18, lng: -78.48, direccion: 'Parada 1' }],
       })
       .expect(201);
 

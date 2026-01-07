@@ -10,7 +10,7 @@ import {
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, DataSource } from 'typeorm';
 import * as bcrypt from 'bcrypt';
-import { EncryptJWT } from 'jose';
+import { EncryptJWT, jwtDecrypt } from 'jose';
 import { randomUUID } from 'node:crypto';
 import { ConfigService } from '@nestjs/config';
 import { ErrorMessages } from '../common/constants/error-messages.constant';
@@ -28,12 +28,14 @@ import { RedisService } from 'src/redis/redis.service';
 import { MailService } from 'src/modules/mail/mail.service';
 import { AuthUser } from './Models/auth-user.entity';
 import { BusinessService } from '../business/business.service';
+import { IdentityResolverService, IdentityHashService } from '../identity';
 
 @Injectable()
 export class AuthService {
   private readonly logger = new Logger(AuthService.name);
   private readonly secretKey: Uint8Array;
   private readonly JWT_EXPIRES_IN: string;
+  private readonly JWT_REFRESH_EXPIRES_IN: string;
 
   // Constantes de Seguridad (cargadas desde ConfigService)
   private readonly MAX_FAILED_ATTEMPTS: number;
@@ -43,13 +45,14 @@ export class AuthService {
   private readonly RESET_TTL_SECONDS: number;
   private readonly RESET_PREFIX = 'reset:token:';
   private readonly REVOKE_PREFIX = 'revoke:jti:';
+  private readonly REFRESH_PREFIX = 'refresh:';
 
   // NUEVAS CONSTANTES PARA LIMITE Y LINK ÚNICO
   private readonly RESET_LIMIT_PREFIX = 'reset:limit:';
   private readonly RESET_ACTIVE_PREFIX = 'reset:active:';
   private readonly MAX_RESET_ATTEMPTS: number;
   private readonly RESET_LIMIT_TTL = 60 * 60;
-  private readonly DEFAULT_REVOKE_TTL_SECONDS = 8 * 60 * 60;
+  private readonly DEFAULT_REVOKE_TTL_SECONDS = 7 * 24 * 60 * 60; // 7 días
 
   constructor(
     @InjectRepository(AuthUser)
@@ -61,10 +64,14 @@ export class AuthService {
     private readonly redisService: RedisService,
     private readonly mailService: MailService,
     private readonly structuredLogger: StructuredLogger,
+    private readonly identityResolver: IdentityResolverService,
+    private readonly identityHash: IdentityHashService,
   ) {
     const jwtSecret = this.configService.get<string>('JWT_SECRET');
     this.JWT_EXPIRES_IN =
-      this.configService.get<string>('JWT_EXPIRES_IN') || '8h';
+      this.configService.get<string>('JWT_EXPIRES_IN') || '15m';
+    this.JWT_REFRESH_EXPIRES_IN =
+      this.configService.get<string>('JWT_REFRESH_EXPIRES_IN') || '7d';
     this.secretKey = new TextEncoder().encode(jwtSecret);
 
     // Cargar constantes de seguridad desde variables de entorno
@@ -107,10 +114,12 @@ export class AuthService {
         );
       }
 
-      const userId = randomUUID();
+      const authUserId = randomUUID();
+      const createdAt = new Date();
 
+      // 1. Crear usuario en auth
       const authUser = this.authUserRepo.create({
-        id: userId,
+        id: authUserId,
         email: normalizedEmail,
         rol: RolUsuarioEnum.USER,
         estadoVerificacion: EstadoVerificacionEnum.NO_VERIFICADO,
@@ -121,39 +130,51 @@ export class AuthService {
 
       await queryRunner.manager.save(authUser);
 
+      // 2. Crear usuario en business (con su propio UUID, desacoplado)
       const businessIdentity =
         await this.businessService.createFromAuthWithManager(
           queryRunner.manager,
-          userId,
           {
-            email,
             nombre,
             apellido,
             celular,
           },
         );
 
+      // 3. Crear mapeo de identidad encriptado
+      await this.identityResolver.createMappingWithManager(
+        queryRunner.manager,
+        authUserId,
+        businessIdentity.businessUserId,
+        { email: normalizedEmail, createdAt },
+      );
+
       await queryRunner.commitTransaction();
 
-      // Auditar registro exitoso
+      // Auditar con hash determinístico (no UUID)
+      const deterministicHash = this.identityHash.generateDeterministicHash({
+        email: normalizedEmail,
+        createdAt,
+      });
+
       await this.auditService.logEvent({
         action: AuditAction.REGISTER,
-        userId,
+        userId: deterministicHash,
         ipAddress: context?.ip,
         userAgent: context?.userAgent,
         result: AuditResult.SUCCESS,
-        metadata: { email: normalizedEmail },
+        metadata: { publicId: businessIdentity.publicId },
       });
 
       this.structuredLogger.logSuccess(
         SecurityEventType.REGISTER,
         'User registration',
-        userId,
-        `user:${userId}`,
-        { email: normalizedEmail, alias: businessIdentity.alias },
+        deterministicHash,
+        `user:${businessIdentity.publicId}`,
+        { alias: businessIdentity.alias },
       );
 
-      this.logger.log(`User registered: ${userId}`);
+      this.logger.log(`User registered: ${businessIdentity.publicId}`);
 
       return {
         success: true,
@@ -193,7 +214,7 @@ export class AuthService {
           undefined,
           `user:${email}`,
           'INVALID_CREDENTIALS',
-          { email, ip: context?.ip },
+          { ip: context?.ip },
         );
         this.logger.warn(`Intento de login fallido para email: ${email}`);
         throw new UnauthorizedException(ErrorMessages.AUTH.INVALID_CREDENTIALS);
@@ -213,10 +234,14 @@ export class AuthService {
         user.credential.passwordHash,
       );
 
+      // Obtener hash determinístico para auditoría
+      const deterministicHash =
+        await this.identityResolver.getDeterministicHash(user.id);
+
       if (!passwordValid) {
         await this.auditService.logEvent({
           action: AuditAction.LOGIN_FAILED,
-          userId: user.id,
+          userId: deterministicHash ?? user.id,
           ipAddress: context?.ip,
           userAgent: context?.userAgent,
           result: AuditResult.FAILED,
@@ -227,23 +252,32 @@ export class AuthService {
 
       await this.resetFailedAttempts(user);
 
-      const token = await new EncryptJWT({
-        role: user.rol,
-        isVerified:
-          user.estadoVerificacion === EstadoVerificacionEnum.VERIFICADO,
-      })
-        .setProtectedHeader({ alg: 'dir', enc: 'A256GCM' })
-        .setSubject(user.id)
-        .setIssuer('wasigo-api')
-        .setAudience('wasigo-app')
-        .setJti(randomUUID())
-        .setIssuedAt()
-        .setExpirationTime(this.JWT_EXPIRES_IN)
-        .encrypt(this.secretKey);
+      // Resolver businessUserId desde authUserId
+      const businessUserId = await this.identityResolver.resolveBusinessUserId(
+        user.id,
+      );
+
+      // Obtener datos de business para el token
+      const businessUser = await this.businessService.findById(businessUserId);
+
+      if (!businessUser) {
+        throw new InternalServerErrorException(
+          ErrorMessages.SYSTEM.BUSINESS_USER_NOT_FOUND,
+        );
+      }
+
+      // Generar par de tokens (access + refresh)
+      const tokens = await this.generateTokenPair(
+        businessUserId,
+        user.rol,
+        user.estadoVerificacion === EstadoVerificacionEnum.VERIFICADO,
+        businessUser.alias,
+        businessUser.publicId,
+      );
 
       await this.auditService.logEvent({
         action: AuditAction.LOGIN_SUCCESS,
-        userId: user.id,
+        userId: deterministicHash ?? businessUserId,
         ipAddress: context?.ip,
         userAgent: context?.userAgent,
         result: AuditResult.SUCCESS,
@@ -252,15 +286,14 @@ export class AuthService {
       this.structuredLogger.logSuccess(
         SecurityEventType.LOGIN_SUCCESS,
         'User login',
-        user.id,
-        `user:${user.id}`,
-        { email: user.email, role: user.rol, ip: context?.ip },
+        deterministicHash ?? businessUserId,
+        `user:${businessUser.publicId}`,
+        { role: user.rol, ip: context?.ip },
       );
 
       return {
         role: user.rol,
-        token,
-        expiresIn: 28800, // 8h en segundos
+        ...tokens,
       };
     } catch (error) {
       if (error instanceof UnauthorizedException) throw error;
@@ -389,15 +422,20 @@ export class AuthService {
     await this.redisService.del(redisKey);
     await this.redisService.del(`${this.RESET_ACTIVE_PREFIX}${user.id}`);
 
-    await this.redisService.revokeUserSessions(
+    // Resolver businessUserId para revocar sesiones (tokens usan businessUserId)
+    const businessUserId = await this.identityResolver.resolveBusinessUserId(
       user.id,
+    );
+
+    await this.redisService.revokeUserSessions(
+      businessUserId,
       this.getSessionRevokeTtlSeconds(),
     );
 
     // Auditar reset completado
     await this.auditService.logEvent({
       action: AuditAction.PASSWORD_RESET_COMPLETE,
-      userId: user.id,
+      userId: businessUserId,
       ipAddress: context?.ip,
       userAgent: context?.userAgent,
       result: AuditResult.SUCCESS,
@@ -411,10 +449,17 @@ export class AuthService {
     expSeconds: number,
     userId?: string,
     context?: AuthContext,
+    refreshToken?: string,
   ): Promise<{ message: string }> {
+    // Revocar access token
     if (expSeconds > 0) {
       const redisKey = `${this.REVOKE_PREFIX}${jti}`;
       await this.redisService.set(redisKey, 'REVOKED', expSeconds);
+    }
+
+    // Revocar refresh token si se proporciona
+    if (refreshToken) {
+      await this.revokeRefreshToken(refreshToken);
     }
 
     // Auditar logout
@@ -432,13 +477,20 @@ export class AuthService {
   }
 
   async changePassword(
-    userId: string,
+    businessUserId: string,
     currentPass: string,
     newPass: string,
     context?: AuthContext,
   ) {
+    // Resolver authUserId desde businessUserId
+    const authUserId =
+      await this.identityResolver.resolveAuthUserId(businessUserId);
+    if (!authUserId) {
+      throw new NotFoundException(ErrorMessages.USER.NOT_FOUND);
+    }
+
     const user = await this.authUserRepo.findOne({
-      where: { id: userId },
+      where: { id: authUserId },
       relations: ['credential'],
     });
 
@@ -459,7 +511,7 @@ export class AuthService {
       // Auditar intento fallido
       await this.auditService.logEvent({
         action: AuditAction.PASSWORD_CHANGE_FAILED,
-        userId,
+        userId: businessUserId,
         ipAddress: context?.ip,
         userAgent: context?.userAgent,
         result: AuditResult.FAILED,
@@ -477,14 +529,14 @@ export class AuthService {
     user.credential.passwordHash = await bcrypt.hash(newPass, 12);
     await this.authUserRepo.save(user);
     await this.redisService.revokeUserSessions(
-      user.id,
+      businessUserId,
       this.getSessionRevokeTtlSeconds(),
     );
 
     // Auditar cambio exitoso
     await this.auditService.logEvent({
       action: AuditAction.PASSWORD_CHANGE,
-      userId,
+      userId: businessUserId,
       ipAddress: context?.ip,
       userAgent: context?.userAgent,
       result: AuditResult.SUCCESS,
@@ -530,8 +582,10 @@ export class AuthService {
   }
 
   private getSessionRevokeTtlSeconds(): number {
+    // Usar la duración del refresh token para revocación de sesiones
+    // ya que necesitamos bloquear tokens hasta que todos expiren
     return parseDurationToSeconds(
-      this.JWT_EXPIRES_IN,
+      this.JWT_REFRESH_EXPIRES_IN,
       this.DEFAULT_REVOKE_TTL_SECONDS,
     );
   }
@@ -596,5 +650,193 @@ export class AuthService {
     });
 
     return admins.map((admin) => admin.email);
+  }
+
+  /**
+   * Genera un par de tokens (access + refresh)
+   */
+  private async generateTokenPair(
+    businessUserId: string,
+    role: RolUsuarioEnum,
+    isVerified: boolean,
+    alias: string,
+    publicId: string,
+  ): Promise<{
+    accessToken: string;
+    refreshToken: string;
+    expiresIn: number;
+    refreshExpiresIn: number;
+  }> {
+    const accessJti = randomUUID();
+    const refreshJti = randomUUID();
+
+    // Access Token (corta duración: 15 minutos)
+    const accessToken = await new EncryptJWT({
+      role,
+      isVerified,
+      alias,
+      publicId,
+      type: 'access',
+    })
+      .setProtectedHeader({ alg: 'dir', enc: 'A256GCM' })
+      .setSubject(businessUserId)
+      .setIssuer('wasigo-api')
+      .setAudience('wasigo-app')
+      .setJti(accessJti)
+      .setIssuedAt()
+      .setExpirationTime(this.JWT_EXPIRES_IN)
+      .encrypt(this.secretKey);
+
+    // Refresh Token (larga duración: 7 días)
+    const refreshToken = await new EncryptJWT({
+      type: 'refresh',
+      accessJti, // Vinculado al access token original
+    })
+      .setProtectedHeader({ alg: 'dir', enc: 'A256GCM' })
+      .setSubject(businessUserId)
+      .setIssuer('wasigo-api')
+      .setAudience('wasigo-app')
+      .setJti(refreshJti)
+      .setIssuedAt()
+      .setExpirationTime(this.JWT_REFRESH_EXPIRES_IN)
+      .encrypt(this.secretKey);
+
+    // Almacenar refresh token en Redis para rotación y revocación
+    const refreshTtl = parseDurationToSeconds(
+      this.JWT_REFRESH_EXPIRES_IN,
+      7 * 24 * 60 * 60,
+    );
+    await this.redisService.set(
+      `${this.REFRESH_PREFIX}${refreshJti}`,
+      businessUserId,
+      refreshTtl,
+    );
+
+    return {
+      accessToken,
+      refreshToken,
+      expiresIn: parseDurationToSeconds(this.JWT_EXPIRES_IN, 900), // 15 min default
+      refreshExpiresIn: refreshTtl,
+    };
+  }
+
+  /**
+   * Refresca los tokens usando un refresh token válido
+   */
+  async refreshTokens(
+    refreshToken: string,
+    context?: AuthContext,
+  ): Promise<{
+    accessToken: string;
+    refreshToken: string;
+    expiresIn: number;
+    refreshExpiresIn: number;
+  }> {
+    try {
+      const { payload } = await jwtDecrypt(refreshToken, this.secretKey, {
+        issuer: 'wasigo-api',
+        audience: 'wasigo-app',
+      });
+
+      // Validar que es un refresh token
+      if (payload.type !== 'refresh') {
+        throw new UnauthorizedException(
+          ErrorMessages.AUTH.REFRESH_TOKEN_INVALID,
+        );
+      }
+
+      const refreshJti = payload.jti as string;
+      const businessUserId = payload.sub as string;
+
+      // Verificar que el refresh token existe en Redis (no revocado)
+      const storedUserId = await this.redisService.get(
+        `${this.REFRESH_PREFIX}${refreshJti}`,
+      );
+
+      if (!storedUserId || storedUserId !== businessUserId) {
+        throw new UnauthorizedException(
+          ErrorMessages.AUTH.REFRESH_TOKEN_REVOKED,
+        );
+      }
+
+      // Verificar si las sesiones del usuario han sido revocadas
+      const tokenIat = payload.iat as number;
+      const isUserSessionRevoked = await this.redisService.isUserSessionRevoked(
+        businessUserId,
+        tokenIat,
+      );
+
+      if (isUserSessionRevoked) {
+        // Eliminar el refresh token de Redis
+        await this.redisService.del(`${this.REFRESH_PREFIX}${refreshJti}`);
+        throw new UnauthorizedException(ErrorMessages.SYSTEM.SESSION_EXPIRED);
+      }
+
+      // Obtener datos del usuario
+      const businessUser = await this.businessService.findById(businessUserId);
+      if (!businessUser) {
+        throw new UnauthorizedException(
+          ErrorMessages.SYSTEM.BUSINESS_USER_NOT_FOUND,
+        );
+      }
+
+      // Obtener rol actual del usuario (puede haber cambiado)
+      const authUserId =
+        await this.identityResolver.resolveAuthUserId(businessUserId);
+      if (!authUserId) {
+        throw new UnauthorizedException(ErrorMessages.USER.NOT_FOUND);
+      }
+
+      const authUser = await this.authUserRepo.findOne({
+        where: { id: authUserId },
+      });
+      if (!authUser) {
+        throw new UnauthorizedException(ErrorMessages.USER.NOT_FOUND);
+      }
+
+      // Revocar el refresh token actual (rotación)
+      await this.redisService.del(`${this.REFRESH_PREFIX}${refreshJti}`);
+
+      // Generar nuevos tokens
+      const tokens = await this.generateTokenPair(
+        businessUserId,
+        authUser.rol,
+        authUser.estadoVerificacion === EstadoVerificacionEnum.VERIFICADO,
+        businessUser.alias,
+        businessUser.publicId,
+      );
+
+      this.logger.debug(`Tokens refreshed for user: ${businessUser.publicId}`);
+
+      return tokens;
+    } catch (error) {
+      if (error instanceof UnauthorizedException) throw error;
+
+      this.logger.warn(
+        `Refresh token validation failed: ${error instanceof Error ? error.message : 'Unknown error'}`,
+      );
+      throw new UnauthorizedException(ErrorMessages.AUTH.REFRESH_TOKEN_INVALID);
+    }
+  }
+
+  /**
+   * Revoca un refresh token específico (para logout completo)
+   */
+  async revokeRefreshToken(refreshToken: string): Promise<void> {
+    try {
+      const { payload } = await jwtDecrypt(refreshToken, this.secretKey, {
+        issuer: 'wasigo-api',
+        audience: 'wasigo-app',
+      });
+
+      if (payload.type === 'refresh' && payload.jti) {
+        await this.redisService.del(
+          `${this.REFRESH_PREFIX}${payload.jti as string}`,
+        );
+      }
+    } catch {
+      // Si el token es inválido, simplemente ignoramos
+      this.logger.debug('Invalid refresh token during revocation');
+    }
   }
 }

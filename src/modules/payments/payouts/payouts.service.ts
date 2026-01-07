@@ -44,11 +44,11 @@ export class PayoutsService {
   ) {}
 
   async getMyPayouts(
-    userId: string,
+    businessUserId: string,
     status?: string,
   ): Promise<{ message: string; data?: Payout[] }> {
     const driver = await this.driverRepository.findOne({
-      where: { userId },
+      where: { businessUserId },
     });
 
     if (!driver) {
@@ -80,11 +80,11 @@ export class PayoutsService {
   }
 
   async getPayoutById(
-    userId: string,
+    businessUserId: string,
     payoutId: string,
   ): Promise<{ message: string; data?: Payout }> {
     const driver = await this.driverRepository.findOne({
-      where: { userId },
+      where: { businessUserId },
     });
 
     if (!driver) {
@@ -255,8 +255,8 @@ export class PayoutsService {
     }
 
     try {
-      const paypalResponse = await this.paypalClient.request<PaypalPayoutResponse>(
-        {
+      const paypalResponse =
+        await this.paypalClient.request<PaypalPayoutResponse>({
           method: 'POST',
           path: '/v1/payments/payouts',
           body: {
@@ -277,8 +277,7 @@ export class PayoutsService {
               },
             ],
           },
-        },
-      );
+        });
 
       payout.paypalBatchId =
         paypalResponse.batch_header?.payout_batch_id ?? null;

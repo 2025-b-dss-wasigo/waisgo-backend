@@ -1,6 +1,7 @@
 import {
   Body,
   Controller,
+  Get,
   HttpCode,
   HttpStatus,
   ParseUUIDPipe,
@@ -24,6 +25,8 @@ import {
   ResetPasswordDto,
   RegisterUserDto,
   UpdatePasswordDto,
+  RefreshTokenDto,
+  LogoutDto,
 } from './Dto';
 import { Public, User, Roles } from '../common/Decorators';
 import type { JwtPayload } from '../common/types';
@@ -121,18 +124,46 @@ export class AuthController {
   @Post('logout')
   @HttpCode(HttpStatus.OK)
   @ApiBearerAuth('access-token')
-  @ApiOperation({ summary: 'Cerrar sesión (Revocar token)' })
+  @ApiOperation({ summary: 'Cerrar sesión (Revocar tokens)' })
   @ApiResponse({ status: 200, description: 'Sesión cerrada correctamente.' })
   @ApiResponse({
     status: 401,
     description: 'Token no proporcionado o inválido.',
   })
-  logout(@User() user: JwtPayload, @Req() req: Request) {
+  logout(
+    @User() user: JwtPayload,
+    @Req() req: Request,
+    @Body() dto?: LogoutDto,
+  ) {
     const context = buildAuthContext(req);
     const nowInSeconds = Math.floor(Date.now() / 1000);
     const expSeconds = Math.max(0, user.exp - nowInSeconds);
 
-    return this.authService.logout(user.jti, expSeconds, user.id, context);
+    return this.authService.logout(
+      user.jti,
+      expSeconds,
+      user.id,
+      context,
+      dto?.refreshToken,
+    );
+  }
+
+  @Public()
+  @Post('refresh')
+  @HttpCode(HttpStatus.OK)
+  @Throttle({ default: { limit: 10, ttl: 60000 } }) // 10 intentos por minuto
+  @ApiOperation({ summary: 'Renovar tokens con refresh token' })
+  @ApiResponse({
+    status: 200,
+    description: 'Tokens renovados correctamente.',
+  })
+  @ApiResponse({
+    status: 401,
+    description: 'Refresh token inválido, expirado o revocado.',
+  })
+  async refresh(@Body() dto: RefreshTokenDto, @Req() req: Request) {
+    const context = buildAuthContext(req);
+    return this.authService.refreshTokens(dto.refreshToken, context);
   }
 
   @Roles(
@@ -178,5 +209,20 @@ export class AuthController {
       dto.newPassword,
       context,
     );
+  }
+
+  @Get('role')
+  @ApiBearerAuth('access-token')
+  @ApiOperation({ summary: 'Obtener el rol del usuario autenticado' })
+  @ApiResponse({
+    status: 200,
+    description: 'Retorna el rol del usuario.',
+  })
+  @ApiResponse({
+    status: 401,
+    description: 'Token no proporcionado o inválido.',
+  })
+  getRole(@User() user: JwtPayload) {
+    return { role: user.role };
   }
 }

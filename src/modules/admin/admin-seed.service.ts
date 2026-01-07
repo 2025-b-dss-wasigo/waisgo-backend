@@ -34,6 +34,7 @@ import { AuditAction, AuditResult } from '../audit/Enums';
 import { ErrorMessages } from '../common/constants/error-messages.constant';
 import type { AuthContext } from '../common/types';
 import { generatePublicId } from '../common/utils/public-id.util';
+import { IdentityResolverService } from '../identity';
 
 type SeedResult = {
   message: string;
@@ -49,6 +50,7 @@ export class AdminSeedService {
     private readonly businessUserRepo: Repository<BusinessUser>,
     private readonly dataSource: DataSource,
     private readonly auditService: AuditService,
+    private readonly identityResolver: IdentityResolverService,
   ) {}
 
   private getPeriod(date: Date): string {
@@ -223,172 +225,181 @@ export class AdminSeedService {
 
       await authRepo.save(authUsers);
 
-      await businessRepo.save([
-        businessRepo.create({
-          id: driverOneId,
-          publicId: await generatePublicId(businessRepo, 'USR'),
-          email: driverOneEmail,
-          alias: seedAlias,
-          profile: profileRepo.create({
-            userId: driverOneId,
-            nombre: 'Seed',
-            apellido: 'Driver1',
-            celular: '0999999901',
-            ratingPromedio: 4.6,
-            totalViajes: 5,
-            totalCalificaciones: 5,
+      // Helper to create and save a business user with profile and identity mapping
+      const createBusinessUser = async (
+        authId: string,
+        email: string,
+        alias: string,
+        profileData: Partial<UserProfile>,
+      ): Promise<BusinessUser> => {
+        const businessUser = await businessRepo.save(
+          businessRepo.create({
+            publicId: await generatePublicId(businessRepo, 'USR'),
+            alias,
           }),
-        }),
-        businessRepo.create({
-          id: driverTwoId,
-          publicId: await generatePublicId(businessRepo, 'USR'),
-          email: driverTwoEmail,
-          alias: 'seed_driver_2',
-          profile: profileRepo.create({
-            userId: driverTwoId,
-            nombre: 'Seed',
-            apellido: 'Driver2',
-            celular: '0999999902',
-            ratingPromedio: 4.4,
-            totalViajes: 4,
-            totalCalificaciones: 4,
+        );
+
+        // Create profile with generated businessUserId
+        await profileRepo.save(
+          profileRepo.create({
+            businessUserId: businessUser.id,
+            ...profileData,
           }),
-        }),
-        businessRepo.create({
-          id: driverThreeId,
-          publicId: await generatePublicId(businessRepo, 'USR'),
-          email: driverThreeEmail,
-          alias: 'seed_driver_3',
-          profile: profileRepo.create({
-            userId: driverThreeId,
-            nombre: 'Seed',
-            apellido: 'Driver3',
-            celular: '0999999903',
-            ratingPromedio: 4.8,
-            totalViajes: 3,
-            totalCalificaciones: 3,
-          }),
-        }),
-        businessRepo.create({
-          id: passengerOneId,
-          publicId: await generatePublicId(businessRepo, 'USR'),
-          email: passengerOneEmail,
-          alias: 'seed_passenger_1',
-          profile: profileRepo.create({
-            userId: passengerOneId,
-            nombre: 'Seed',
-            apellido: 'Passenger1',
-            celular: '0999999911',
-            ratingPromedio: 4,
-            totalViajes: 2,
-            totalCalificaciones: 2,
-          }),
-        }),
-        businessRepo.create({
-          id: passengerTwoId,
-          publicId: await generatePublicId(businessRepo, 'USR'),
-          email: passengerTwoEmail,
-          alias: 'seed_passenger_2',
-          profile: profileRepo.create({
-            userId: passengerTwoId,
-            nombre: 'Seed',
-            apellido: 'Passenger2',
-            celular: '0999999912',
-            ratingPromedio: 4.5,
-            totalViajes: 3,
-            totalCalificaciones: 3,
-          }),
-        }),
-        businessRepo.create({
-          id: passengerThreeId,
-          publicId: await generatePublicId(businessRepo, 'USR'),
-          email: passengerThreeEmail,
-          alias: 'seed_passenger_3',
-          profile: profileRepo.create({
-            userId: passengerThreeId,
-            nombre: 'Seed',
-            apellido: 'Passenger3',
-            celular: '0999999913',
-            ratingPromedio: 3.8,
-            totalViajes: 1,
-            totalCalificaciones: 1,
-          }),
-        }),
-        businessRepo.create({
-          id: passengerFourId,
-          publicId: await generatePublicId(businessRepo, 'USR'),
-          email: passengerFourEmail,
-          alias: 'seed_passenger_4',
-          profile: profileRepo.create({
-            userId: passengerFourId,
-            nombre: 'Seed',
-            apellido: 'Passenger4',
-            celular: '0999999914',
-            ratingPromedio: 4.2,
-            totalViajes: 2,
-            totalCalificaciones: 2,
-          }),
-        }),
-        businessRepo.create({
-          id: passengerFiveId,
-          publicId: await generatePublicId(businessRepo, 'USR'),
-          email: passengerFiveEmail,
-          alias: 'seed_passenger_5',
-          profile: profileRepo.create({
-            userId: passengerFiveId,
-            nombre: 'Seed',
-            apellido: 'Passenger5',
-            celular: '0999999915',
-            ratingPromedio: 4.1,
-            totalViajes: 1,
-            totalCalificaciones: 1,
-          }),
-        }),
-        businessRepo.create({
-          id: passengerSixId,
-          publicId: await generatePublicId(businessRepo, 'USR'),
-          email: passengerSixEmail,
-          alias: 'seed_passenger_6',
-          profile: profileRepo.create({
-            userId: passengerSixId,
-            nombre: 'Seed',
-            apellido: 'Passenger6',
-            celular: '0999999916',
-            ratingPromedio: 4.7,
-            totalViajes: 2,
-            totalCalificaciones: 2,
-          }),
-        }),
-        businessRepo.create({
-          id: adminId,
-          publicId: await generatePublicId(businessRepo, 'USR'),
-          email: adminEmail,
-          alias: 'seed_admin',
-          profile: profileRepo.create({
-            userId: adminId,
-            nombre: 'Seed',
-            apellido: 'Admin',
-            celular: '0999999900',
-          }),
-        }),
-        businessRepo.create({
-          id: userId,
-          publicId: await generatePublicId(businessRepo, 'USR'),
-          email: userEmail,
-          alias: 'seed_user',
-          profile: profileRepo.create({
-            userId: userId,
-            nombre: 'Seed',
-            apellido: 'User',
-            celular: '0999999909',
-          }),
-        }),
-      ]);
+        );
+
+        // Create identity mapping
+        await this.identityResolver.createMappingWithManager(
+          manager,
+          authId,
+          businessUser.id,
+          { email, createdAt: now },
+        );
+
+        return businessUser;
+      };
+
+      const businessUserDriverOne = await createBusinessUser(
+        driverOneId,
+        driverOneEmail,
+        seedAlias,
+        {
+          nombre: 'Seed',
+          apellido: 'Driver1',
+          celular: '0999999901',
+          ratingPromedio: 4.6,
+          totalViajes: 5,
+          totalCalificaciones: 5,
+        },
+      );
+
+      const businessUserDriverTwo = await createBusinessUser(
+        driverTwoId,
+        driverTwoEmail,
+        'seed_driver_2',
+        {
+          nombre: 'Seed',
+          apellido: 'Driver2',
+          celular: '0999999902',
+          ratingPromedio: 4.4,
+          totalViajes: 4,
+          totalCalificaciones: 4,
+        },
+      );
+
+      const businessUserDriverThree = await createBusinessUser(
+        driverThreeId,
+        driverThreeEmail,
+        'seed_driver_3',
+        {
+          nombre: 'Seed',
+          apellido: 'Driver3',
+          celular: '0999999903',
+          ratingPromedio: 4.8,
+          totalViajes: 3,
+          totalCalificaciones: 3,
+        },
+      );
+
+      const businessUserPassengerOne = await createBusinessUser(
+        passengerOneId,
+        passengerOneEmail,
+        'seed_passenger_1',
+        {
+          nombre: 'Seed',
+          apellido: 'Passenger1',
+          celular: '0999999911',
+          ratingPromedio: 4,
+          totalViajes: 2,
+          totalCalificaciones: 2,
+        },
+      );
+
+      const businessUserPassengerTwo = await createBusinessUser(
+        passengerTwoId,
+        passengerTwoEmail,
+        'seed_passenger_2',
+        {
+          nombre: 'Seed',
+          apellido: 'Passenger2',
+          celular: '0999999912',
+          ratingPromedio: 4.5,
+          totalViajes: 3,
+          totalCalificaciones: 3,
+        },
+      );
+
+      const businessUserPassengerThree = await createBusinessUser(
+        passengerThreeId,
+        passengerThreeEmail,
+        'seed_passenger_3',
+        {
+          nombre: 'Seed',
+          apellido: 'Passenger3',
+          celular: '0999999913',
+          ratingPromedio: 3.8,
+          totalViajes: 1,
+          totalCalificaciones: 1,
+        },
+      );
+
+      const businessUserPassengerFour = await createBusinessUser(
+        passengerFourId,
+        passengerFourEmail,
+        'seed_passenger_4',
+        {
+          nombre: 'Seed',
+          apellido: 'Passenger4',
+          celular: '0999999914',
+          ratingPromedio: 4.2,
+          totalViajes: 2,
+          totalCalificaciones: 2,
+        },
+      );
+
+      const businessUserPassengerFive = await createBusinessUser(
+        passengerFiveId,
+        passengerFiveEmail,
+        'seed_passenger_5',
+        {
+          nombre: 'Seed',
+          apellido: 'Passenger5',
+          celular: '0999999915',
+          ratingPromedio: 4.1,
+          totalViajes: 1,
+          totalCalificaciones: 1,
+        },
+      );
+
+      const businessUserPassengerSix = await createBusinessUser(
+        passengerSixId,
+        passengerSixEmail,
+        'seed_passenger_6',
+        {
+          nombre: 'Seed',
+          apellido: 'Passenger6',
+          celular: '0999999916',
+          ratingPromedio: 4.7,
+          totalViajes: 2,
+          totalCalificaciones: 2,
+        },
+      );
+
+      await createBusinessUser(adminId, adminEmail, 'seed_admin', {
+        nombre: 'Seed',
+        apellido: 'Admin',
+        celular: '0999999900',
+      });
+
+      await createBusinessUser(userId, userEmail, 'seed_user', {
+        nombre: 'Seed',
+        apellido: 'User',
+        celular: '0999999909',
+      });
 
       const driverOne = await driverRepo.save(
         driverRepo.create({
           publicId: await generatePublicId(driverRepo, 'DRV'),
-          userId: driverOneId,
+          businessUserId: businessUserDriverOne.id,
           paypalEmail: 'seed.driver1@paypal.com',
           estado: EstadoConductorEnum.APROBADO,
           fechaAprobacion: now,
@@ -397,7 +408,7 @@ export class AdminSeedService {
       const driverTwo = await driverRepo.save(
         driverRepo.create({
           publicId: await generatePublicId(driverRepo, 'DRV'),
-          userId: driverTwoId,
+          businessUserId: businessUserDriverTwo.id,
           paypalEmail: 'seed.driver2@paypal.com',
           estado: EstadoConductorEnum.APROBADO,
           fechaAprobacion: now,
@@ -406,7 +417,7 @@ export class AdminSeedService {
       const driverThree = await driverRepo.save(
         driverRepo.create({
           publicId: await generatePublicId(driverRepo, 'DRV'),
-          userId: driverThreeId,
+          businessUserId: businessUserDriverThree.id,
           paypalEmail: 'seed.driver3@paypal.com',
           estado: EstadoConductorEnum.APROBADO,
           fechaAprobacion: now,
@@ -597,7 +608,7 @@ export class AdminSeedService {
         bookingRepo.create({
           publicId: await generatePublicId(bookingRepo, 'BKG'),
           routeId: routeOne.id,
-          passengerId: passengerOneId,
+          passengerId: businessUserPassengerOne.id,
           estado: EstadoReservaEnum.COMPLETADA,
           otp: '111111',
           otpUsado: true,
@@ -609,7 +620,7 @@ export class AdminSeedService {
         bookingRepo.create({
           publicId: await generatePublicId(bookingRepo, 'BKG'),
           routeId: routeOne.id,
-          passengerId: passengerTwoId,
+          passengerId: businessUserPassengerTwo.id,
           estado: EstadoReservaEnum.COMPLETADA,
           otp: '222222',
           otpUsado: true,
@@ -621,7 +632,7 @@ export class AdminSeedService {
         bookingRepo.create({
           publicId: await generatePublicId(bookingRepo, 'BKG'),
           routeId: routeOne.id,
-          passengerId: passengerThreeId,
+          passengerId: businessUserPassengerThree.id,
           estado: EstadoReservaEnum.NO_SHOW,
           otp: '333333',
           otpUsado: false,
@@ -633,7 +644,7 @@ export class AdminSeedService {
         bookingRepo.create({
           publicId: await generatePublicId(bookingRepo, 'BKG'),
           routeId: routeTwo.id,
-          passengerId: passengerFourId,
+          passengerId: businessUserPassengerFour.id,
           estado: EstadoReservaEnum.CONFIRMADA,
           otp: '444444',
           otpUsado: false,
@@ -645,7 +656,7 @@ export class AdminSeedService {
         bookingRepo.create({
           publicId: await generatePublicId(bookingRepo, 'BKG'),
           routeId: routeThree.id,
-          passengerId: passengerFourId,
+          passengerId: businessUserPassengerFour.id,
           estado: EstadoReservaEnum.COMPLETADA,
           otp: '555555',
           otpUsado: true,
@@ -657,7 +668,7 @@ export class AdminSeedService {
         bookingRepo.create({
           publicId: await generatePublicId(bookingRepo, 'BKG'),
           routeId: routeThree.id,
-          passengerId: passengerFiveId,
+          passengerId: businessUserPassengerFive.id,
           estado: EstadoReservaEnum.NO_SHOW,
           otp: '666666',
           otpUsado: false,
@@ -669,7 +680,7 @@ export class AdminSeedService {
         bookingRepo.create({
           publicId: await generatePublicId(bookingRepo, 'BKG'),
           routeId: routeFour.id,
-          passengerId: passengerSixId,
+          passengerId: businessUserPassengerSix.id,
           estado: EstadoReservaEnum.CANCELADA,
           otp: '777777',
           otpUsado: false,
@@ -682,7 +693,7 @@ export class AdminSeedService {
         bookingRepo.create({
           publicId: await generatePublicId(bookingRepo, 'BKG'),
           routeId: routeSix.id,
-          passengerId: passengerTwoId,
+          passengerId: businessUserPassengerTwo.id,
           estado: EstadoReservaEnum.COMPLETADA,
           otp: '888888',
           otpUsado: true,
@@ -694,7 +705,7 @@ export class AdminSeedService {
         bookingRepo.create({
           publicId: await generatePublicId(bookingRepo, 'BKG'),
           routeId: routeSix.id,
-          passengerId: passengerSixId,
+          passengerId: businessUserPassengerSix.id,
           estado: EstadoReservaEnum.COMPLETADA,
           otp: '999999',
           otpUsado: true,
@@ -832,96 +843,96 @@ export class AdminSeedService {
       await ratingRepo.save([
         ratingRepo.create({
           publicId: await generatePublicId(ratingRepo, 'RAT'),
-          fromUserId: passengerOneId,
-          toUserId: driverOneId,
+          fromUserId: businessUserPassengerOne.id,
+          toUserId: businessUserDriverOne.id,
           routeId: routeOne.id,
           score: 5,
           comment: 'Great ride',
         }),
         ratingRepo.create({
           publicId: await generatePublicId(ratingRepo, 'RAT'),
-          fromUserId: driverOneId,
-          toUserId: passengerOneId,
+          fromUserId: businessUserDriverOne.id,
+          toUserId: businessUserPassengerOne.id,
           routeId: routeOne.id,
           score: 4,
           comment: 'Good passenger',
         }),
         ratingRepo.create({
           publicId: await generatePublicId(ratingRepo, 'RAT'),
-          fromUserId: passengerTwoId,
-          toUserId: driverOneId,
+          fromUserId: businessUserPassengerTwo.id,
+          toUserId: businessUserDriverOne.id,
           routeId: routeOne.id,
           score: 4,
           comment: 'Nice driver',
         }),
         ratingRepo.create({
           publicId: await generatePublicId(ratingRepo, 'RAT'),
-          fromUserId: driverOneId,
-          toUserId: passengerTwoId,
+          fromUserId: businessUserDriverOne.id,
+          toUserId: businessUserPassengerTwo.id,
           routeId: routeOne.id,
           score: 5,
           comment: 'On time',
         }),
         ratingRepo.create({
           publicId: await generatePublicId(ratingRepo, 'RAT'),
-          fromUserId: passengerThreeId,
-          toUserId: driverOneId,
+          fromUserId: businessUserPassengerThree.id,
+          toUserId: businessUserDriverOne.id,
           routeId: routeOne.id,
           score: 3,
           comment: 'No show',
         }),
         ratingRepo.create({
           publicId: await generatePublicId(ratingRepo, 'RAT'),
-          fromUserId: passengerFourId,
-          toUserId: driverTwoId,
+          fromUserId: businessUserPassengerFour.id,
+          toUserId: businessUserDriverTwo.id,
           routeId: routeThree.id,
           score: 5,
           comment: 'Smooth ride',
         }),
         ratingRepo.create({
           publicId: await generatePublicId(ratingRepo, 'RAT'),
-          fromUserId: driverTwoId,
-          toUserId: passengerFourId,
+          fromUserId: businessUserDriverTwo.id,
+          toUserId: businessUserPassengerFour.id,
           routeId: routeThree.id,
           score: 4,
           comment: 'Great rider',
         }),
         ratingRepo.create({
           publicId: await generatePublicId(ratingRepo, 'RAT'),
-          fromUserId: passengerFiveId,
-          toUserId: driverTwoId,
+          fromUserId: businessUserPassengerFive.id,
+          toUserId: businessUserDriverTwo.id,
           routeId: routeThree.id,
           score: 4,
           comment: 'Good route',
         }),
         ratingRepo.create({
           publicId: await generatePublicId(ratingRepo, 'RAT'),
-          fromUserId: passengerTwoId,
-          toUserId: driverThreeId,
+          fromUserId: businessUserPassengerTwo.id,
+          toUserId: businessUserDriverThree.id,
           routeId: routeSix.id,
           score: 5,
           comment: 'Excellent',
         }),
         ratingRepo.create({
           publicId: await generatePublicId(ratingRepo, 'RAT'),
-          fromUserId: driverThreeId,
-          toUserId: passengerTwoId,
+          fromUserId: businessUserDriverThree.id,
+          toUserId: businessUserPassengerTwo.id,
           routeId: routeSix.id,
           score: 4,
           comment: 'Friendly rider',
         }),
         ratingRepo.create({
           publicId: await generatePublicId(ratingRepo, 'RAT'),
-          fromUserId: passengerSixId,
-          toUserId: driverThreeId,
+          fromUserId: businessUserPassengerSix.id,
+          toUserId: businessUserDriverThree.id,
           routeId: routeSix.id,
           score: 5,
           comment: 'Very good',
         }),
         ratingRepo.create({
           publicId: await generatePublicId(ratingRepo, 'RAT'),
-          fromUserId: driverThreeId,
-          toUserId: passengerSixId,
+          fromUserId: businessUserDriverThree.id,
+          toUserId: businessUserPassengerSix.id,
           routeId: routeSix.id,
           score: 4,
           comment: 'Nice trip',

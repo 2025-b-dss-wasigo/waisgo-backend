@@ -14,6 +14,12 @@ import { DriverDocument } from './driver-document.entity';
 import { Vehicle } from './vehicle.entity';
 import { EstadoConductorEnum } from '../Enums';
 
+/**
+ * Entidad de conductor.
+ *
+ * IMPORTANTE: businessUserId referencia a business.business_users.id,
+ * NO a auth.auth_users.id. Los schemas están desacoplados.
+ */
 @Entity({ schema: 'business', name: 'drivers' })
 @Index('IDX_drivers_estado', ['estado'])
 @Index('IDX_drivers_fecha_solicitud', ['fechaSolicitud'])
@@ -25,10 +31,10 @@ export class Driver {
   publicId: string;
 
   @Column({ type: 'uuid', unique: true })
-  userId: string;
+  businessUserId: string;
 
   @OneToOne(() => BusinessUser, { onDelete: 'CASCADE' })
-  @JoinColumn({ name: 'userId' })
+  @JoinColumn({ name: 'businessUserId' })
   user: BusinessUser;
 
   @Column({ type: 'varchar', length: 254 })

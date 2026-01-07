@@ -50,27 +50,26 @@ export class RatingsService {
   ) {}
 
   private isRatingWindowExpired(referenceDate: Date): boolean {
-    const diffHours =
-      (Date.now() - referenceDate.getTime()) / (1000 * 60 * 60);
+    const diffHours = (Date.now() - referenceDate.getTime()) / (1000 * 60 * 60);
     return diffHours > this.RATING_WINDOW_HOURS;
   }
 
   private async updateUserRating(
-    userId: string,
+    businessUserId: string,
     context?: AuthContext,
   ): Promise<void> {
     const stats = await this.ratingRepository
       .createQueryBuilder('rating')
       .select('AVG(rating.score)', 'avg')
       .addSelect('COUNT(*)', 'count')
-      .where('rating.toUserId = :userId', { userId })
+      .where('rating.toUserId = :userId', { userId: businessUserId })
       .getRawOne<{ avg: string | null; count: string | null }>();
 
     const average = Number(stats?.avg ?? 0);
     const total = Number(stats?.count ?? 0);
 
     const profile = await this.profileRepository.findOne({
-      where: { userId },
+      where: { businessUserId },
     });
 
     if (!profile) {
@@ -86,7 +85,7 @@ export class RatingsService {
     if (!wasBlocked && profile.isBloqueadoPorRating) {
       await this.auditService.logEvent({
         action: AuditAction.RATING_USER_BLOCKED,
-        userId,
+        userId: businessUserId,
         result: AuditResult.SUCCESS,
         ipAddress: context?.ip,
         userAgent: context?.userAgent,
@@ -113,14 +112,16 @@ export class RatingsService {
     }
 
     if (this.isRatingWindowExpired(route.updatedAt)) {
-      throw new BadRequestException(ErrorMessages.RATINGS.RATING_WINDOW_EXPIRED);
+      throw new BadRequestException(
+        ErrorMessages.RATINGS.RATING_WINDOW_EXPIRED,
+      );
     }
 
     const driver = await this.driverRepository.findOne({
       where: { id: route.driverId },
     });
 
-    const driverUserId = driver?.userId;
+    const driverUserId = driver?.businessUserId;
 
     const identifier = dto.toUserId.trim();
     const toUserWhere: FindOptionsWhere<BusinessUser>[] = [];
@@ -272,9 +273,7 @@ export class RatingsService {
     };
   }
 
-  async getRatingSummary(
-    userId: string,
-  ): Promise<{
+  async getRatingSummary(businessUserId: string): Promise<{
     message: string;
     average?: number;
     totalRatings?: number;
@@ -284,18 +283,21 @@ export class RatingsService {
       .createQueryBuilder('rating')
       .select('AVG(rating.score)', 'avg')
       .addSelect('COUNT(*)', 'count')
-      .where('rating.toUserId = :userId', { userId })
+      .where('rating.toUserId = :userId', { userId: businessUserId })
       .getRawOne<{ avg: string | null; count: string | null }>();
 
     const average = Number(stats?.avg ?? 0);
     const totalRatings = Number(stats?.count ?? 0);
 
     const passengerTrips = await this.bookingRepository.count({
-      where: { passengerId: userId, estado: EstadoReservaEnum.COMPLETADA },
+      where: {
+        passengerId: businessUserId,
+        estado: EstadoReservaEnum.COMPLETADA,
+      },
     });
 
     const driver = await this.driverRepository.findOne({
-      where: { userId },
+      where: { businessUserId },
     });
 
     const driverTrips = driver
@@ -313,7 +315,7 @@ export class RatingsService {
   }
 
   async canRateRoute(
-    userId: string,
+    businessUserId: string,
     routeId: string,
   ): Promise<{
     canRate: boolean;
@@ -346,17 +348,17 @@ export class RatingsService {
       where: { id: route.driverId },
     });
 
-    const driverUserId = driver?.userId;
+    const driverUserId = driver?.businessUserId;
 
     const passengerBooking = await this.bookingRepository.findOne({
       where: {
         routeId: route.id,
-        passengerId: userId,
+        passengerId: businessUserId,
         estado: In([EstadoReservaEnum.COMPLETADA, EstadoReservaEnum.NO_SHOW]),
       },
     });
 
-    const isDriver = driverUserId === userId;
+    const isDriver = driverUserId === businessUserId;
     const isPassenger = Boolean(passengerBooking);
 
     if (!isDriver && !isPassenger) {
@@ -364,7 +366,7 @@ export class RatingsService {
     }
 
     const existingRatings = await this.ratingRepository.find({
-      where: { fromUserId: userId, routeId: route.id },
+      where: { fromUserId: businessUserId, routeId: route.id },
     });
     const ratedUserIds = new Set(existingRatings.map((r) => r.toUserId));
 
@@ -438,9 +440,8 @@ export class RatingsService {
       .getMany();
 
     const data = profiles.map((profile) => ({
-      userId: profile.userId,
+      businessUserId: profile.businessUserId,
       publicId: profile.user?.publicId,
-      email: profile.user?.email,
       alias: profile.user?.alias,
       rating: Number(profile.ratingPromedio),
       totalRatings: profile.totalCalificaciones,

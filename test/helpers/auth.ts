@@ -2,7 +2,10 @@ import request from 'supertest';
 import { INestApplication } from '@nestjs/common';
 import { DataSource } from 'typeorm';
 import { AuthUser } from '../../src/modules/auth/Models/auth-user.entity';
-import { EstadoVerificacionEnum, RolUsuarioEnum } from '../../src/modules/auth/Enum';
+import {
+  EstadoVerificacionEnum,
+  RolUsuarioEnum,
+} from '../../src/modules/auth/Enum';
 import { InMemoryRedisService } from './fakes';
 
 export type UserSeed = {
@@ -53,7 +56,7 @@ export const loginUser = async (
     .send({ email, password })
     .expect(200);
 
-  return response.body?.data?.token as string;
+  return response.body?.data?.accessToken as string;
 };
 
 export const verifyUser = async (

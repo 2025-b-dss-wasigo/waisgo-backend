@@ -34,6 +34,11 @@ describe('AuthService', () => {
   const businessService = {
     createFromAuthWithManager: jest.fn(),
     getDisplayName: jest.fn(),
+    findById: jest.fn().mockResolvedValue({
+      id: 'business-user-id',
+      publicId: 'USR_123',
+      alias: 'Alias',
+    }),
   };
   const configService = {
     get: jest.fn(),
@@ -49,6 +54,19 @@ describe('AuthService', () => {
   };
   const mailService = {
     sendResetPasswordEmail: jest.fn(),
+  };
+
+  const identityResolver = {
+    createMappingWithManager: jest.fn(),
+    resolveBusinessUserId: jest.fn().mockResolvedValue('business-user-id'),
+    resolveAuthUserId: jest.fn().mockResolvedValue('user-id'),
+    getDeterministicHash: jest.fn().mockResolvedValue('hash123'),
+  };
+
+  const identityHashService = {
+    generateDeterministicHash: jest.fn().mockReturnValue('hash123'),
+    encrypt: jest.fn(),
+    decrypt: jest.fn(),
   };
 
   const buildQueryRunner = () => {
@@ -89,7 +107,8 @@ describe('AuthService', () => {
     jest.clearAllMocks();
     configService.get.mockImplementation((key: string, fallback?: unknown) => {
       if (key === 'JWT_SECRET') return 'a'.repeat(32);
-      if (key === 'JWT_EXPIRES_IN') return '8h';
+      if (key === 'JWT_EXPIRES_IN') return '15m';
+      if (key === 'JWT_REFRESH_EXPIRES_IN') return '7d';
       if (key === 'MAX_FAILED_ATTEMPTS') return 2;
       if (key === 'BLOCK_TIME_MINUTES') return 1;
       if (key === 'RESET_TOKEN_EXPIRY_MINUTES') return 30;
@@ -113,6 +132,8 @@ describe('AuthService', () => {
       redisService as never,
       mailService as never,
       structuredLogger as never,
+      identityResolver as never,
+      identityHashService as never,
     );
   });
 
@@ -156,7 +177,7 @@ describe('AuthService', () => {
     expect(auditService.logEvent).toHaveBeenCalledWith(
       expect.objectContaining({
         action: AuditAction.LOGIN_FAILED,
-        userId: 'user-id',
+        userId: 'hash123', // Now uses deterministic hash instead of user-id
       }),
     );
     expect(authUserRepo.save).toHaveBeenCalled();
@@ -190,7 +211,13 @@ describe('AuthService', () => {
       password: 'pass',
     });
 
-    expect(response).toEqual({ token: 'token', expiresIn: 28800 });
+    expect(response).toEqual({
+      accessToken: 'token',
+      refreshToken: 'token',
+      expiresIn: 900,
+      refreshExpiresIn: 604800,
+      role: RolUsuarioEnum.USER,
+    });
     expect(authUserRepo.save).toHaveBeenCalled();
   });
 
@@ -212,13 +239,14 @@ describe('AuthService', () => {
     );
   });
 
-  it('register commits transaction and returns business identity', async () => {
+  it('register commits transaction and returns success message', async () => {
     const queryRunner = buildQueryRunner();
     dataSource.createQueryRunner.mockReturnValue(queryRunner);
     authUserRepo.findOne.mockResolvedValue(null);
     (bcrypt.hash as jest.Mock).mockResolvedValue('hashed');
     queryRunner.manager.save.mockResolvedValue({ id: 'user-id' });
     businessService.createFromAuthWithManager.mockResolvedValue({
+      businessUserId: 'business-user-id',
       publicId: 'USR_123',
       alias: 'Alias',
     });
@@ -230,8 +258,7 @@ describe('AuthService', () => {
 
     expect(response).toEqual({
       success: true,
-      userId: 'USR_123',
-      alias: 'Alias',
+      message: ErrorMessages.AUTH.ACCOUNT_CREATE,
     });
     expect(queryRunner.startTransaction).toHaveBeenCalled();
     expect(queryRunner.commitTransaction).toHaveBeenCalled();
@@ -393,8 +420,8 @@ describe('AuthService', () => {
     );
     expect(redisService.del).toHaveBeenCalledWith('reset:active:user-id');
     expect(redisService.revokeUserSessions).toHaveBeenCalledWith(
-      'user-id',
-      28800,
+      'business-user-id',
+      604800,
     );
     expect(auditService.logEvent).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -482,7 +509,7 @@ describe('AuthService', () => {
     expect(authUserRepo.save).toHaveBeenCalled();
     expect(redisService.revokeUserSessions).toHaveBeenCalledWith(
       'user-id',
-      28800,
+      604800,
     );
     expect(auditService.logEvent).toHaveBeenCalledWith(
       expect.objectContaining({

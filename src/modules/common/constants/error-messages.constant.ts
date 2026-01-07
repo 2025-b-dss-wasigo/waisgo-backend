@@ -33,6 +33,11 @@ export const ErrorMessages = {
     // Logout
     LOGOUT_SUCCESS: 'Sesión cerrada correctamente',
     PASSWORD_CHANGE_SUCCESS: 'Contraseña actualizada correctamente',
+
+    // Refresh Token
+    REFRESH_TOKEN_INVALID: 'Token de actualización inválido o expirado',
+    REFRESH_TOKEN_REVOKED: 'Token de actualización revocado',
+    TOKEN_REFRESHED: 'Token actualizado correctamente',
   },
 
   // ============ VERIFICATION (RN-005, RN-006) ============
@@ -270,6 +275,7 @@ export const ErrorMessages = {
     ALIAS_GENERATION_FAILED:
       'No se pudo generar un alias único. Intenta nuevamente en unos minutos',
     SESSION_EXPIRED: 'Tu sesión ha expirado. Inicia sesión nuevamente',
+    BUSINESS_USER_NOT_FOUND: 'Usuario de negocio no encontrado',
   },
 
   // ============ STORAGE ============

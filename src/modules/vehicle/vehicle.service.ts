@@ -37,9 +37,9 @@ export class VehicleService {
   /**
    * Verifica que el usuario es un conductor aprobado y retorna el driver
    */
-  private async getApprovedDriver(userId: string): Promise<Driver> {
+  private async getApprovedDriver(businessUserId: string): Promise<Driver> {
     const driver = await this.driverRepo.findOne({
-      where: { userId },
+      where: { businessUserId },
     });
 
     if (!driver) {
@@ -57,9 +57,9 @@ export class VehicleService {
    * Verifica que el usuario es un conductor (aprobado o pendiente) y retorna el driver.
    * Usado para operaciones que no requieren estado aprobado, como disable.
    */
-  private async getActiveDriver(userId: string): Promise<Driver> {
+  private async getActiveDriver(businessUserId: string): Promise<Driver> {
     const driver = await this.driverRepo.findOne({
-      where: { userId },
+      where: { businessUserId },
     });
 
     if (!driver) {
@@ -81,11 +81,11 @@ export class VehicleService {
    * Crea un nuevo vehículo
    */
   async create(
-    userId: string,
+    businessUserId: string,
     dto: CreateVehicleDto,
     context: AuthContext,
   ): Promise<{ message: string; vehicle: Vehicle }> {
-    const driver = await this.getApprovedDriver(userId);
+    const driver = await this.getApprovedDriver(businessUserId);
 
     const normalizedPlaca = dto.placa.toUpperCase();
     const existingPlaca = await this.vehicleRepo.findOne({
@@ -111,7 +111,7 @@ export class VehicleService {
 
     await this.auditService.logEvent({
       action: AuditAction.DRIVER_VEHICLE_UPDATE,
-      userId,
+      userId: businessUserId,
       result: AuditResult.SUCCESS,
       ipAddress: context.ip,
       userAgent: context.userAgent,
@@ -131,9 +131,9 @@ export class VehicleService {
   /**
    * Obtiene los vehículos del conductor
    */
-  async getMyVehicles(userId: string): Promise<Vehicle[]> {
+  async getMyVehicles(businessUserId: string): Promise<Vehicle[]> {
     const driver = await this.driverRepo.findOne({
-      where: { userId },
+      where: { businessUserId },
     });
 
     if (!driver) {
@@ -151,12 +151,12 @@ export class VehicleService {
    * Para cambiar placa o reactivar, usar los endpoints específicos.
    */
   async update(
-    userId: string,
+    businessUserId: string,
     vehicleId: string,
     dto: UpdateVehicleDto,
     context: AuthContext,
   ): Promise<{ message: string; vehicle: Vehicle }> {
-    const driver = await this.getApprovedDriver(userId);
+    const driver = await this.getApprovedDriver(businessUserId);
 
     const vehicle = await this.vehicleRepo.findOne({
       where: buildIdWhere<Vehicle>(vehicleId).map((where) => ({
@@ -182,12 +182,12 @@ export class VehicleService {
       driver.estado = EstadoConductorEnum.PENDIENTE;
       driver.fechaAprobacion = null;
       await this.driverRepo.save(driver);
-      await this.businessService.updateAlias(userId, 'Pasajero');
+      await this.businessService.updateAlias(businessUserId, 'Pasajero');
     }
 
     await this.auditService.logEvent({
       action: AuditAction.DRIVER_VEHICLE_UPDATE,
-      userId,
+      userId: businessUserId,
       result: AuditResult.SUCCESS,
       ipAddress: context.ip,
       userAgent: context.userAgent,
@@ -225,11 +225,11 @@ export class VehicleService {
    * Desactiva un vehículo
    */
   async disable(
-    userId: string,
+    businessUserId: string,
     vehicleId: string,
     context: AuthContext,
   ): Promise<{ message: string }> {
-    const driver = await this.getActiveDriver(userId);
+    const driver = await this.getActiveDriver(businessUserId);
 
     const vehicle = await this.vehicleRepo.findOne({
       where: buildIdWhere<Vehicle>(vehicleId).map((where) => ({
@@ -247,7 +247,7 @@ export class VehicleService {
 
     await this.auditService.logEvent({
       action: AuditAction.DRIVER_VEHICLE_UPDATE,
-      userId,
+      userId: businessUserId,
       result: AuditResult.SUCCESS,
       ipAddress: context.ip,
       userAgent: context.userAgent,
@@ -265,11 +265,11 @@ export class VehicleService {
    * Reactiva un vehículo (endpoint específico)
    */
   async reactivate(
-    userId: string,
+    businessUserId: string,
     vehicleId: string,
     context: AuthContext,
   ): Promise<{ message: string; vehicle: Vehicle }> {
-    const driver = await this.getActiveDriver(userId);
+    const driver = await this.getActiveDriver(businessUserId);
 
     const vehicle = await this.vehicleRepo.findOne({
       where: buildIdWhere<Vehicle>(vehicleId).map((where) => ({
@@ -295,7 +295,7 @@ export class VehicleService {
 
     await this.auditService.logEvent({
       action: AuditAction.DRIVER_VEHICLE_UPDATE,
-      userId,
+      userId: businessUserId,
       result: AuditResult.SUCCESS,
       ipAddress: context.ip,
       userAgent: context.userAgent,

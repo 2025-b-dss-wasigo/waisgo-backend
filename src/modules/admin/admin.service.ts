@@ -26,6 +26,7 @@ import { buildIdWhere } from '../common/utils/public-id.util';
 import { parseDurationToSeconds } from '../common/utils/duration.util';
 import { RedisService } from 'src/redis/redis.service';
 import { StructuredLogger, SecurityEventType } from '../common/logger';
+import { IdentityResolverService } from '../identity';
 
 export interface DocumentWithSignedUrl {
   id: string;
@@ -42,13 +43,12 @@ export interface DocumentWithSignedUrl {
 export interface DriverListItem {
   id: string;
   publicId: string;
-  userId: string;
+  businessUserId: string;
   userPublicId?: string;
   paypalEmail: string;
   estado: EstadoConductorEnum;
   fechaSolicitud: Date;
   userName?: string;
-  userEmail?: string;
   documentsCount: number;
   pendingDocuments: number;
 }
@@ -80,6 +80,7 @@ export class AdminService {
     private readonly redisService: RedisService,
     private readonly businessService: BusinessService,
     private readonly structuredLogger: StructuredLogger,
+    private readonly identityResolver: IdentityResolverService,
   ) {}
 
   /**
@@ -104,7 +105,7 @@ export class AdminService {
     const driverList: DriverListItem[] = drivers.map((driver) => ({
       id: driver.id,
       publicId: driver.publicId,
-      userId: driver.userId,
+      businessUserId: driver.businessUserId,
       userPublicId: driver.user?.publicId,
       paypalEmail: driver.paypalEmail,
       estado: driver.estado,
@@ -112,7 +113,6 @@ export class AdminService {
       userName: driver.user?.profile
         ? `${driver.user.profile.nombre} ${driver.user.profile.apellido}`
         : undefined,
-      userEmail: driver.user?.email,
       documentsCount: driver.documents?.length || 0,
       pendingDocuments:
         driver.documents?.filter(
@@ -245,9 +245,15 @@ export class AdminService {
       driver.fechaAprobacion = new Date();
       await queryRunner.manager.save(driver);
 
-      const authUser = await queryRunner.manager.findOne(AuthUser, {
-        where: { id: driver.userId },
-      });
+      // Resolver authUserId desde businessUserId
+      const authUserId = await this.identityResolver.resolveAuthUserId(
+        driver.businessUserId,
+      );
+      const authUser = authUserId
+        ? await queryRunner.manager.findOne(AuthUser, {
+            where: { id: authUserId },
+          })
+        : null;
 
       if (authUser) {
         authUser.rol = RolUsuarioEnum.CONDUCTOR;
@@ -256,10 +262,13 @@ export class AdminService {
 
       await queryRunner.commitTransaction();
 
-      await this.businessService.updateAlias(driver.userId, 'Conductor');
+      await this.businessService.updateAlias(
+        driver.businessUserId,
+        'Conductor',
+      );
 
       await this.redisService.revokeUserSessions(
-        driver.userId,
+        driver.businessUserId,
         this.getSessionRevokeTtlSeconds(),
       );
 
@@ -269,7 +278,7 @@ export class AdminService {
         result: AuditResult.SUCCESS,
         ipAddress: context.ip,
         userAgent: context.userAgent,
-        metadata: { driverId, driverUserId: driver.userId },
+        metadata: { driverId, driverBusinessUserId: driver.businessUserId },
       });
 
       // Enviar notificación al conductor
@@ -280,7 +289,7 @@ export class AdminService {
         'Driver approval',
         adminUserId,
         `driver:${driver.publicId}`,
-        { driverId, driverUserId: driver.userId },
+        { driverId, driverBusinessUserId: driver.businessUserId },
       );
 
       this.logger.log(`Driver approved: ${driverId} by admin ${adminUserId}`);
@@ -387,10 +396,10 @@ export class AdminService {
     driver.estado = EstadoConductorEnum.SUSPENDIDO;
     await this.driverRepo.save(driver);
 
-    await this.businessService.updateAlias(driver.userId, 'Pasajero');
+    await this.businessService.updateAlias(driver.businessUserId, 'Pasajero');
 
     await this.redisService.revokeUserSessions(
-      driver.userId,
+      driver.businessUserId,
       this.getSessionRevokeTtlSeconds(),
     );
 
@@ -400,7 +409,7 @@ export class AdminService {
       result: AuditResult.SUCCESS,
       ipAddress: context.ip,
       userAgent: context.userAgent,
-      metadata: { driverId, driverUserId: driver.userId },
+      metadata: { driverId, driverBusinessUserId: driver.businessUserId },
     });
 
     this.structuredLogger.logSuccess(
@@ -408,7 +417,7 @@ export class AdminService {
       'Driver suspension',
       adminUserId,
       `driver:${driver.publicId}`,
-      { driverId, driverUserId: driver.userId },
+      { driverId, driverBusinessUserId: driver.businessUserId },
     );
 
     this.logger.log(`Driver suspended: ${driverId} by admin ${adminUserId}`);
@@ -525,9 +534,12 @@ export class AdminService {
     rejectionReason: string,
   ): Promise<void> {
     try {
-      const authUser = await this.authUserRepo.findOne({
-        where: { id: driver.userId },
-      });
+      const authUserId = await this.identityResolver.resolveAuthUserId(
+        driver.businessUserId,
+      );
+      const authUser = authUserId
+        ? await this.authUserRepo.findOne({ where: { id: authUserId } })
+        : null;
 
       if (!authUser) {
         this.logger.warn(`AuthUser not found for driver ${driver.id}`);
