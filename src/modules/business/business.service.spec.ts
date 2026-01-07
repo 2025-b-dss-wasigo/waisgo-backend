@@ -91,14 +91,11 @@ describe('BusinessService', () => {
       .spyOn(publicIdUtil, 'generatePublicId')
       .mockResolvedValue('USR_456');
 
-    const result = await service.createFromAuthWithManager(
-      manager as never,
-      {
-        nombre: 'Ana',
-        apellido: 'Perez',
-        celular: '0999999999',
-      },
-    );
+    const result = await service.createFromAuthWithManager(manager as never, {
+      nombre: 'Ana',
+      apellido: 'Perez',
+      celular: '0999999999',
+    });
 
     expect(result.publicId).toBe('USR_456');
     expect(manager.save).toHaveBeenCalled();
