@@ -79,16 +79,13 @@ export class RegisterUserDto {
   @IsNotEmpty({ message: ErrorMessages.VALIDATION.REQUIRED_FIELD('password') })
   @IsString()
   @Length(7, 20, { message: ErrorMessages.AUTH.PASSWORD_REQUIREMENTS })
-  @Transform(({ value }: { value: unknown }) =>
-    typeof value === 'string' ? value.trim() : value,
-  )
-  @Matches(/^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[^A-Za-z\d]).+$/, {
+  @Matches(/^(?=.*[a-z])(?=.*[A-Z])(?=.*[0-9])(?=.*[!@#$%^&*]).+$/, {
     message: ErrorMessages.AUTH.PASSWORD_REQUIREMENTS,
   })
   password: string;
 
   @ApiProperty({
-    description: 'Confirmaci\u00f3n de contrase\u00f1a',
+    description: 'Confirmación de contraseña',
     example: 'Segura.123',
     minLength: 7,
     maxLength: 20,
@@ -98,10 +95,7 @@ export class RegisterUserDto {
   })
   @IsString()
   @Length(7, 20, { message: ErrorMessages.AUTH.PASSWORD_REQUIREMENTS })
-  @Transform(({ value }: { value: unknown }) =>
-    typeof value === 'string' ? value.trim() : value,
-  )
-  @Matches(/^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[/*.@_#-])[A-Za-z\d/*.@_#-]+$/, {
+  @Matches(/^(?=.*[a-z])(?=.*[A-Z])(?=.*[0-9])(?=.*[!@#$%^&*]).+$/, {
     message: ErrorMessages.AUTH.PASSWORD_REQUIREMENTS,
   })
   confirmPassword: string;

@@ -65,7 +65,8 @@ services:
       start_period: 10s
 
   backend:
-    image: ghcr.io/2025-b-dss-wasigo/waisgo-backend:secure
+    #image: ghcr.io/2025-b-dss-wasigo/waisgo-backend:secure
+    build: . 
     container_name: wasigo-backend
     restart: unless-stopped
     env_file:

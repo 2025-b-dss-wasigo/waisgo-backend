@@ -33,8 +33,5 @@ export class LoginDto {
   @IsNotEmpty({ message: ErrorMessages.VALIDATION.REQUIRED_FIELD('password') })
   @IsString()
   @Length(7, 20, { message: ErrorMessages.AUTH.PASSWORD_REQUIREMENTS })
-  @Transform(({ value }: { value: unknown }) =>
-    typeof value === 'string' ? value.trim() : value,
-  )
   password: string;
 }

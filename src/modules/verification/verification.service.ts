@@ -31,7 +31,7 @@ export class VerificationService {
   ) {}
 
   /**
-   * Valida que el userId sea un UUID válido
+   * Valida que el userId sea un UUID válido o un publicId (USR_XXXX)
    */
   private validateUserId(userId: string): void {
     if (!isUUID(userId)) {
