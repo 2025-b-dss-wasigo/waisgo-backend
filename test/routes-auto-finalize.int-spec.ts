@@ -3,7 +3,11 @@ import { RoutesService } from '../src/modules/routes/routes.service';
 import { Route } from '../src/modules/routes/Models/route.entity';
 import { CampusOrigenEnum, EstadoRutaEnum } from '../src/modules/routes/Enums';
 import { createTestApp, TestAppContext } from './helpers/app';
-import { createBusinessUser, createDriver, createRoute } from './helpers/fixtures';
+import {
+  createBusinessUser,
+  createDriver,
+  createRoute,
+} from './helpers/fixtures';
 
 const hasTestDb = Boolean(process.env.TEST_DB_HOST);
 const describeRoutes = hasTestDb ? describe : describe.skip;
@@ -28,13 +32,11 @@ describeRoutes('Routes auto-finalize (integration)', () => {
 
   it('finalizes expired routes without pending bookings', async () => {
     const driverUser = await createBusinessUser(ctx.dataSource, {
-      id: '11111111-2222-3333-4444-555555555555',
-      email: `driver${Date.now()}@epn.edu.ec`,
       alias: `driver${Date.now()}`.slice(0, 20),
     });
 
     const driver = await createDriver(ctx.dataSource, {
-      userId: driverUser.id,
+      businessUserId: driverUser.id,
       paypalEmail: 'driver@epn.edu.ec',
     });
 

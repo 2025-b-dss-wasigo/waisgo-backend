@@ -10,7 +10,6 @@ import {
 import { AuthUser } from './auth-user.entity';
 
 @Entity({ schema: 'auth', name: 'credentials' })
-@Index('IDX_credentials_bloqueado_hasta', ['bloqueadoHasta'])
 @Index('IDX_credentials_failed_attempts', ['failedAttempts'])
 export class Credential {
   @PrimaryGeneratedColumn('uuid')
@@ -33,9 +32,6 @@ export class Credential {
 
   @Column({ type: 'timestamp', nullable: true })
   lastFailedAttempt: Date | null;
-
-  @Column({ type: 'timestamp', nullable: true })
-  bloqueadoHasta: Date | null;
 
   @UpdateDateColumn()
   updatedAt: Date;

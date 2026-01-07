@@ -1,47 +1,87 @@
 import { DataSource } from 'typeorm';
+import { INestApplication } from '@nestjs/common';
 import { BusinessUser } from '../../src/modules/business/Models/business-user.entity';
+import { AuthUser } from '../../src/modules/auth/Models/auth-user.entity';
 import { Driver } from '../../src/modules/drivers/Models/driver.entity';
 import { Vehicle } from '../../src/modules/drivers/Models/vehicle.entity';
 import { Route } from '../../src/modules/routes/Models/route.entity';
 import { Booking } from '../../src/modules/bookings/Models/booking.entity';
 import { Payment } from '../../src/modules/payments/Models/payment.entity';
 import { EstadoConductorEnum } from '../../src/modules/drivers/Enums/estado-conductor.enum';
-import { CampusOrigenEnum, EstadoRutaEnum } from '../../src/modules/routes/Enums';
+import {
+  CampusOrigenEnum,
+  EstadoRutaEnum,
+} from '../../src/modules/routes/Enums';
 import { EstadoReservaEnum } from '../../src/modules/bookings/Enums';
-import { MetodoPagoEnum, EstadoPagoEnum } from '../../src/modules/payments/Enums';
+import {
+  MetodoPagoEnum,
+  EstadoPagoEnum,
+} from '../../src/modules/payments/Enums';
 import { generatePublicId } from '../../src/modules/common/utils/public-id.util';
+import { IdentityResolverService } from '../../src/modules/identity/identity-resolver.service';
 
-export const getBusinessUserByEmail = async (
+/**
+ * Obtiene un BusinessUser resolviendo desde el AuthUser.
+ * Usa la tabla de identidad encriptada para mapear auth → business.
+ */
+export const getBusinessUserFromAuth = async (
+  app: INestApplication,
   dataSource: DataSource,
   email: string,
 ): Promise<BusinessUser | null> => {
-  return dataSource
-    .getRepository(BusinessUser)
-    .findOne({ where: { email } });
+  const authRepo = dataSource.getRepository(AuthUser);
+  const businessRepo = dataSource.getRepository(BusinessUser);
+
+  const authUser = await authRepo.findOne({
+    where: { email: email.toLowerCase().trim() },
+  });
+  if (!authUser) return null;
+
+  const identityResolver = app.get(IdentityResolverService);
+  const businessUserId = await identityResolver.resolveBusinessUserId(
+    authUser.id,
+  );
+
+  return businessRepo.findOne({ where: { id: businessUserId } });
 };
 
+/**
+ * Obtiene un BusinessUser por su alias o publicId.
+ * NOTA: Ya no se puede buscar por email desde business schema.
+ */
+export const getBusinessUserByAlias = async (
+  dataSource: DataSource,
+  alias: string,
+): Promise<BusinessUser | null> => {
+  return dataSource.getRepository(BusinessUser).findOne({ where: { alias } });
+};
+
+/**
+ * Crea un BusinessUser para tests.
+ * NOTA: El ID ahora es auto-generado (PrimaryGeneratedColumn).
+ */
 export const createBusinessUser = async (
   dataSource: DataSource,
   params: {
-    id: string;
-    email: string;
     alias?: string;
   },
 ): Promise<BusinessUser> => {
   const repo = dataSource.getRepository(BusinessUser);
   const businessUser = repo.create({
-    id: params.id,
     publicId: await generatePublicId(repo, 'USR'),
-    email: params.email,
-    alias: params.alias ?? params.email.split('@')[0]?.slice(0, 20),
+    alias: params.alias ?? `test_user_${Date.now()}`,
   });
   return repo.save(businessUser);
 };
 
+/**
+ * Crea un Driver para tests.
+ * NOTA: Usa businessUserId en lugar de userId.
+ */
 export const createDriver = async (
   dataSource: DataSource,
   params: {
-    userId: string;
+    businessUserId: string;
     paypalEmail?: string;
     estado?: EstadoConductorEnum;
     fechaAprobacion?: Date | null;
@@ -51,7 +91,7 @@ export const createDriver = async (
   const estado = params.estado ?? EstadoConductorEnum.APROBADO;
   const driver = repo.create({
     publicId: await generatePublicId(repo, 'DRV'),
-    userId: params.userId,
+    businessUserId: params.businessUserId,
     paypalEmail: params.paypalEmail ?? 'driver@epn.edu.ec',
     estado,
     fechaAprobacion:

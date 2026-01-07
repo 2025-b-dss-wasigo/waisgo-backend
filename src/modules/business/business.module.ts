@@ -6,11 +6,10 @@ import { BusinessUser } from './Models/business-user.entity';
 import { UserProfile } from './Models/user-profile.entity';
 import { StorageModule } from '../storage/storage.module';
 import { AuditModule } from '../audit/audit.module';
-import { AuthUser } from '../auth/Models/auth-user.entity';
 
 @Module({
   imports: [
-    TypeOrmModule.forFeature([BusinessUser, UserProfile, AuthUser]),
+    TypeOrmModule.forFeature([BusinessUser, UserProfile]),
     StorageModule,
     AuditModule,
   ],

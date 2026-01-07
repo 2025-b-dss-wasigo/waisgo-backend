@@ -1,6 +1,6 @@
 import {
   Entity,
-  PrimaryColumn,
+  PrimaryGeneratedColumn,
   Column,
   CreateDateColumn,
   UpdateDateColumn,
@@ -9,18 +9,27 @@ import {
 } from 'typeorm';
 import { UserProfile } from './user-profile.entity';
 
+/**
+ * Entidad de usuario de negocio.
+ *
+ * IMPORTANTE: Esta entidad está DESACOPLADA de auth.auth_users.
+ * - El id es un UUID generado automáticamente, NO el mismo que auth_users.id
+ * - No hay columna email (está solo en auth.auth_users)
+ * - La correlación se hace a través de audit.user_identity_map
+ */
 @Entity({ schema: 'business', name: 'business_users' })
 @Index('IDX_business_users_is_deleted', ['isDeleted'])
 @Index('IDX_business_users_created_at', ['createdAt'])
+@Index('IDX_business_users_public_id', ['publicId'], { unique: true })
 export class BusinessUser {
-  @PrimaryColumn('uuid')
+  @PrimaryGeneratedColumn('uuid')
   id: string;
 
   @Column({ type: 'varchar', length: 12, unique: true })
   publicId: string;
 
-  @Column({ type: 'varchar', length: 30, unique: true })
-  email: string;
+  // Email ELIMINADO - ahora solo existe en auth.auth_users
+  // La correlación se hace a través del IdentityResolverService
 
   @Column({ type: 'varchar', length: 25, unique: true })
   alias: string;

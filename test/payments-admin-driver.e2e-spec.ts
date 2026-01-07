@@ -4,13 +4,18 @@ import { RolUsuarioEnum } from '../src/modules/auth/Enum';
 import { EstadoReservaEnum } from '../src/modules/bookings/Enums';
 import { MetodoPagoEnum, EstadoPagoEnum } from '../src/modules/payments/Enums';
 import { createTestApp, TestAppContext } from './helpers/app';
-import { buildUserSeed, loginUser, registerUser, setUserRole } from './helpers/auth';
+import {
+  buildUserSeed,
+  loginUser,
+  registerUser,
+  setUserRole,
+} from './helpers/auth';
 import {
   createBooking,
   createDriver,
   createPayment,
   createRoute,
-  getBusinessUserByEmail,
+  getBusinessUserFromAuth,
 } from './helpers/fixtures';
 
 const hasTestDb = Boolean(process.env.TEST_DB_HOST);
@@ -53,7 +58,12 @@ describeFlow('Payments list + reverse flows (e2e)', () => {
     await registerUser(ctx.app, driverSeed);
     await registerUser(ctx.app, passengerSeed);
 
-    await setUserRole(ctx.dataSource, adminSeed.email, RolUsuarioEnum.ADMIN, true);
+    await setUserRole(
+      ctx.dataSource,
+      adminSeed.email,
+      RolUsuarioEnum.ADMIN,
+      true,
+    );
     await setUserRole(
       ctx.dataSource,
       driverSeed.email,
@@ -83,17 +93,19 @@ describeFlow('Payments list + reverse flows (e2e)', () => {
       passengerSeed.password,
     );
 
-    const driverBusiness = await getBusinessUserByEmail(
+    const driverBusiness = await getBusinessUserFromAuth(
+      ctx.app,
       ctx.dataSource,
       driverSeed.email,
     );
-    const passengerBusiness = await getBusinessUserByEmail(
+    const passengerBusiness = await getBusinessUserFromAuth(
+      ctx.app,
       ctx.dataSource,
       passengerSeed.email,
     );
 
     const driver = await createDriver(ctx.dataSource, {
-      userId: driverBusiness?.id as string,
+      businessUserId: driverBusiness?.id as string,
       paypalEmail: 'driver@epn.edu.ec',
     });
 

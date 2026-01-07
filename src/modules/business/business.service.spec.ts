@@ -43,7 +43,6 @@ describe('BusinessService', () => {
     service = new BusinessService(
       businessUserRepo as never,
       profileRepo as never,
-      authUserRepo as never,
       storageService as never,
       configService as never,
       auditService as never,
@@ -62,14 +61,13 @@ describe('BusinessService', () => {
   it('creates business user from auth data', async () => {
     businessUserRepo.create.mockImplementation((input) => ({ ...input }));
     profileRepo.create.mockImplementation((input) => ({ ...input }));
-    businessUserRepo.save.mockResolvedValue({});
+    businessUserRepo.save.mockResolvedValue({ id: 'generated-uuid' });
 
     const idSpy = jest
       .spyOn(publicIdUtil, 'generatePublicId')
       .mockResolvedValue('USR_123');
 
-    const result = await service.createFromAuth('user-id', {
-      email: 'user@epn.edu.ec',
+    const result = await service.createFromAuth({
       nombre: 'Ana',
       apellido: 'Perez',
       celular: '0999999999',
@@ -86,23 +84,18 @@ describe('BusinessService', () => {
     const manager = {
       getRepository: jest.fn(() => ({ findOne: jest.fn() })),
       create: jest.fn().mockImplementation((_entity, input) => ({ ...input })),
-      save: jest.fn().mockResolvedValue({}),
+      save: jest.fn().mockResolvedValue({ id: 'generated-uuid' }),
     };
 
     const idSpy = jest
       .spyOn(publicIdUtil, 'generatePublicId')
       .mockResolvedValue('USR_456');
 
-    const result = await service.createFromAuthWithManager(
-      manager as never,
-      'user-id',
-      {
-        email: 'user@epn.edu.ec',
-        nombre: 'Ana',
-        apellido: 'Perez',
-        celular: '0999999999',
-      },
-    );
+    const result = await service.createFromAuthWithManager(manager as never, {
+      nombre: 'Ana',
+      apellido: 'Perez',
+      celular: '0999999999',
+    });
 
     expect(result.publicId).toBe('USR_456');
     expect(manager.save).toHaveBeenCalled();

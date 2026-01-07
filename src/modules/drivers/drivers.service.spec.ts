@@ -6,7 +6,9 @@ import type { AuthContext } from '../common/types';
 import * as publicIdUtil from '../common/utils/public-id.util';
 
 describe('DriversService', () => {
-  const pngBuffer = Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]);
+  const pngBuffer = Buffer.from([
+    0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a,
+  ]);
   const driverRepo = {
     findOne: jest.fn(),
     create: jest.fn(),
@@ -37,6 +39,15 @@ describe('DriversService', () => {
     get: jest.fn(),
   };
 
+  const identityResolver = {
+    resolveAuthUserId: jest.fn(),
+    resolveBusinessUserId: jest.fn(),
+  };
+
+  const authUserRepo = {
+    findOne: jest.fn(),
+  };
+
   const context: AuthContext = { ip: '127.0.0.1', userAgent: 'jest' };
 
   let service: DriversService;
@@ -48,11 +59,13 @@ describe('DriversService', () => {
       driverRepo as never,
       documentRepo as never,
       businessUserRepo as never,
+      authUserRepo as never,
       storageService as never,
       auditService as never,
       mailService as never,
       authService as never,
       configService as never,
+      identityResolver as never,
     );
   });
 

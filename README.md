@@ -314,7 +314,55 @@ http://localhost:3000/api/docs
 | ---------- | ------------------------------------------- |
 | `auth`     | Usuarios, credenciales                      |
 | `business` | Rutas, bookings, drivers, vehicles, ratings |
-| `audit`    | Logs de auditoría                           |
+| `audit`    | Logs de auditoría, mapeo de identidades     |
+
+### Arquitectura de Seguridad: Schemas Desacoplados
+
+WasiGo implementa un sistema de **desacoplamiento total** entre los schemas de autenticación y negocio para proteger la privacidad del usuario en caso de robo de base de datos.
+
+#### ¿Por qué desacoplar?
+
+Si un atacante obtiene acceso a la base de datos, **NO podrá correlacionar** quién realizó qué acción sin tener acceso a las claves de encriptación del servidor.
+
+#### Cómo funciona:
+
+```
+┌─────────────────┐      ┌──────────────────────┐      ┌────────────────┐
+│   auth schema   │      │    audit schema      │      │ business schema│
+│                 │      │                      │      │                │
+│ auth_users      │─────▶│ user_identity_map    │◀─────│ business_users │
+│ - id (UUID)     │      │ - authUserId ✓       │      │ - id (UUID)    │
+│ - email         │      │ - businessUserId ✓   │      │ - alias        │
+│ - passwordHash  │      │ - deterministicHash  │      │ - NO email     │
+└─────────────────┘      └──────────────────────┘      └────────────────┘
+                                    │
+                                    │ Encriptado con AES-256-GCM
+                                    │ + HMAC-SHA256 hash
+```
+
+**Características de seguridad:**
+
+- ✅ **UUIDs separados**: `auth_users.id` ≠ `business_users.id`
+- ✅ **Sin email en business**: No hay forma de identificar al usuario desde el schema de negocio
+- ✅ **Mapeo encriptado**: La tabla `user_identity_map` usa AES-256-GCM para cifrar ambos UUIDs
+- ✅ **Hash determinístico**: HMAC-SHA256 para buscar mapeos sin exponer UUIDs
+- ✅ **Tokens JWE**: El token contiene `businessUserId`, no `authUserId`
+
+**Variables de entorno requeridas:**
+
+```env
+IDENTITY_HASH_SECRET=tu_secreto_minimo_32_caracteres
+IDENTITY_ENCRYPTION_KEY=64_caracteres_hex_32_bytes
+```
+
+**Protección en caso de robo:**
+
+Si un atacante roba la base de datos pero NO las claves del servidor:
+
+- ❌ No puede leer los UUIDs reales de la tabla de mapeo (están encriptados)
+- ❌ No puede correlacionar `auth_users` con `business_users`
+- ❌ No puede determinar qué usuario hizo qué reserva, pago o calificación
+- ❌ El hash determinístico no revela información del usuario
 
 ### Usuarios de BD
 
@@ -326,7 +374,11 @@ http://localhost:3000/api/docs
 ### Diagrama Simplificado
 
 ```
-auth.legacy_users ←→ auth.credentials
+auth.auth_users ←→ auth.credentials
+         ↓
+audit.user_identity_map (encrypted)
+         ↓
+business.business_users
          ↓
 business.drivers → business.vehicles
          ↓
@@ -341,6 +393,7 @@ business.ratings
 
 ### Características Implementadas
 
+- ✅ **Schemas desacoplados** con UUIDs separados y mapeo encriptado
 - ✅ **Tokens JWE** (cifrado A256GCM) en lugar de JWT plano
 - ✅ **Rate Limiting** con @nestjs/throttler
 - ✅ **Helmet** para headers de seguridad

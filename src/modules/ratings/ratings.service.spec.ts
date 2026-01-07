@@ -108,7 +108,9 @@ describe('RatingsService', () => {
       updatedAt: new Date(),
       driverId: 'driver-id',
     });
-    driverRepository.findOne.mockResolvedValue({ userId: 'driver-user' });
+    driverRepository.findOne.mockResolvedValue({
+      businessUserId: 'driver-user',
+    });
     businessUserRepository.findOne.mockResolvedValue(null);
 
     await expect(
@@ -127,7 +129,9 @@ describe('RatingsService', () => {
       updatedAt: new Date(),
       driverId: 'driver-id',
     });
-    driverRepository.findOne.mockResolvedValue({ userId: 'driver-user' });
+    driverRepository.findOne.mockResolvedValue({
+      businessUserId: 'driver-user',
+    });
     businessUserRepository.findOne.mockResolvedValue({ id: 'driver-user' });
     bookingRepository.findOne.mockResolvedValue(null);
 
@@ -147,7 +151,9 @@ describe('RatingsService', () => {
       updatedAt: new Date(),
       driverId: 'driver-id',
     });
-    driverRepository.findOne.mockResolvedValue({ userId: 'driver-user' });
+    driverRepository.findOne.mockResolvedValue({
+      businessUserId: 'driver-user',
+    });
     businessUserRepository.findOne.mockResolvedValue({ id: 'other-user' });
     bookingRepository.findOne.mockResolvedValue({ id: 'booking-id' });
 
@@ -167,7 +173,9 @@ describe('RatingsService', () => {
       updatedAt: new Date(),
       driverId: 'driver-id',
     });
-    driverRepository.findOne.mockResolvedValue({ userId: 'driver-user' });
+    driverRepository.findOne.mockResolvedValue({
+      businessUserId: 'driver-user',
+    });
     businessUserRepository.findOne.mockResolvedValue({ id: 'passenger-id' });
     bookingRepository.findOne.mockResolvedValue(null);
 
@@ -189,7 +197,7 @@ describe('RatingsService', () => {
     });
     driverRepository.findOne.mockResolvedValue({
       id: 'driver-id',
-      userId: 'driver-user',
+      businessUserId: 'driver-user',
     });
     businessUserRepository.findOne.mockResolvedValue({ id: 'driver-user' });
     bookingRepository.findOne.mockResolvedValue({ id: 'booking-id' });
@@ -208,7 +216,7 @@ describe('RatingsService', () => {
     };
     ratingRepository.createQueryBuilder.mockReturnValue(qb);
     profileRepository.findOne.mockResolvedValue({
-      userId: 'driver-user',
+      businessUserId: 'driver-user',
       ratingPromedio: 4,
       isBloqueadoPorRating: false,
     });
@@ -242,7 +250,9 @@ describe('RatingsService', () => {
       updatedAt: new Date(),
       driverId: 'driver-id',
     });
-    driverRepository.findOne.mockResolvedValue({ userId: 'driver-user' });
+    driverRepository.findOne.mockResolvedValue({
+      businessUserId: 'driver-user',
+    });
 
     await expect(
       service.createRating('user-id', {
@@ -250,9 +260,7 @@ describe('RatingsService', () => {
         toUserId: '6b8b4567-90ab-cdef-1234-567890abcdef',
         score: 5,
       }),
-    ).rejects.toThrow(
-      ErrorMessages.VALIDATION.INVALID_FORMAT('toUserId'),
-    );
+    ).rejects.toThrow(ErrorMessages.VALIDATION.INVALID_FORMAT('toUserId'));
 
     if (previous === undefined) {
       delete process.env.ALLOW_UUID_IDENTIFIERS;
@@ -301,7 +309,9 @@ describe('RatingsService', () => {
       updatedAt: new Date(),
       driverId: 'driver-id',
     });
-    driverRepository.findOne.mockResolvedValue({ userId: 'driver-user' });
+    driverRepository.findOne.mockResolvedValue({
+      businessUserId: 'driver-user',
+    });
     bookingRepository.findOne.mockResolvedValue({ id: 'booking-id' });
     ratingRepository.find.mockResolvedValue([{ toUserId: 'driver-user' }]);
 
@@ -320,7 +330,9 @@ describe('RatingsService', () => {
       updatedAt: new Date(),
       driverId: 'driver-id',
     });
-    driverRepository.findOne.mockResolvedValue({ userId: 'driver-user' });
+    driverRepository.findOne.mockResolvedValue({
+      businessUserId: 'driver-user',
+    });
     bookingRepository.findOne.mockResolvedValue({ id: 'booking-id' });
     ratingRepository.find.mockResolvedValue([]);
     businessUserRepository.find.mockResolvedValue([
