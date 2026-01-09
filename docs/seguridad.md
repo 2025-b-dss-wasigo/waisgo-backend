@@ -1,6 +1,12 @@
 # Seguridad WasiGo Backend
 
-Esta guia documenta los controles de seguridad implementados en el backend.
+## Objetivo
+Consolidar los controles de seguridad y su ubicacion en el codigo.
+
+## Alcance
+Incluye autenticacion, autorizacion, identidad, OTP, auditoria y hardening de API.
+
+Descripcion: Detalla los controles de seguridad implementados y donde se aplican.
 
 ## Autenticacion y autorizacion
 - JWE (tokens cifrados) para access y refresh tokens.

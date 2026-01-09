@@ -1,100 +1,145 @@
-# Reglas de negocio (alineadas al codigo)
+# Reglas de negocio (RN)
 
-Este documento refleja las reglas implementadas en el codigo actual.
-Los valores marcados como "configurable" provienen de variables de entorno.
+## Objetivo
+Documentar reglas de negocio verificables y alineadas al codigo actual.
 
-## Registro y autenticacion
-- Correo: dominio @epn.edu.ec, max 30, unico.
-- Nombre/Apellido: 3-15 caracteres, solo letras y espacios.
-- Celular: formato 09XXXXXXXX (10 digitos).
-- Contrasena: 7-20 caracteres, incluye mayuscula, minuscula, numero y especial.
-- Alias automatico: Pasajero#### (4 digitos), unico.
+## Alcance
+Incluye registro, verificacion, rutas, reservas, pagos, OTP, ratings y payouts.
 
-## Verificacion de cuenta
-- OTP de 6 digitos.
-- Expiracion: 15 minutos (configurable: OTP_EXPIRATION_MINUTES).
-- Max intentos: 3 (configurable: MAX_OTP_ATTEMPTS).
-- Max reenvios: 3 (configurable: MAX_OTP_RESENDS).
-- Solo rol USER puede enviar/confirmar verificacion.
-- Al verificar, el rol pasa de USER a PASAJERO.
+Descripcion: Documento en formato academico con reglas numeradas y tablas, alineado al codigo actual.
 
-## Limpieza de cuentas no verificadas
-- Cron diario 02:00.
-- Elimina usuarios no verificados con antiguedad > 3 dias
-  (configurable: CLEANUP_UNVERIFIED_DAYS).
+## RN-001 Registro de usuario
+| Campo | Regla |
+| --- | --- |
+| Email | Dominio @epn.edu.ec, max 30, unico |
+| Nombre | 3-15 caracteres, solo letras/espacios |
+| Apellido | 3-15 caracteres, solo letras/espacios |
+| Celular | 10 digitos, formato 09XXXXXXXX |
+| Contrasena | 7-20 caracteres, incluye mayuscula, minuscula, numero y especial |
 
-## Login y bloqueo temporal
-- Bloqueo por intentos fallidos: 5 (configurable: MAX_FAILED_ATTEMPTS).
-- Tiempo de bloqueo: 15 minutos (configurable: BLOCK_TIME_MINUTES).
+## RN-002 Alias automatico
+| Regla | Detalle |
+| --- | --- |
+| Alias | Se genera automaticamente como Pasajero#### |
+| Unicidad | El alias debe ser unico |
 
-## Recuperacion de contrasena
-- Token de reset con TTL 30 min (configurable: RESET_TOKEN_EXPIRY_MINUTES).
-- Max intentos de reset: 3 (configurable: MAX_RESET_ATTEMPTS).
-- Solo un token activo por usuario; el anterior se revoca.
+## RN-003 Verificacion por OTP
+| Regla | Detalle |
+| --- | --- |
+| OTP | 6 digitos |
+| Expiracion | 15 minutos (configurable: OTP_EXPIRATION_MINUTES) |
+| Intentos | Max 3 (configurable: MAX_OTP_ATTEMPTS) |
+| Reenvios | Max 3 (configurable: MAX_OTP_RESENDS) |
+| Rol | Solo USER puede enviar/confirmar verificacion |
+| Transicion | USER -> PASAJERO tras verificar |
 
-## Solicitud de conductor
-- Solo PASAJERO puede solicitar.
-- Requiere email de PayPal valido.
-- Reintento tras rechazo: 7 dias (REJECTION_COOLDOWN_DAYS).
+## RN-004 Limpieza de no verificados
+| Regla | Detalle |
+| --- | --- |
+| Cron | Diario 02:00 |
+| Dias | 3 dias (configurable: CLEANUP_UNVERIFIED_DAYS) |
 
-## Documentos de conductor
-- Tipos: LICENCIA y MATRICULA.
-- Tamaño maximo: 2 MB.
-- Formatos: jpg, png, pdf (se valida firma del archivo).
-- Solo se aceptan en estado PENDIENTE.
+## RN-005 Login y bloqueo
+| Regla | Detalle |
+| --- | --- |
+| Intentos fallidos | 5 (configurable: MAX_FAILED_ATTEMPTS) |
+| Bloqueo | 15 minutos (configurable: BLOCK_TIME_MINUTES) |
 
-## Vehiculos
-- Marca/Modelo: 2-15.
-- Color: 3-10.
-- Placa: 3 letras + 4 digitos (ABC1234), unica.
-- Asientos disponibles: 1-6.
-- Actualizar vehiculo vuelve el estado del conductor a PENDIENTE y el alias a Pasajero####.
+## RN-006 Recuperacion de contrasena
+| Regla | Detalle |
+| --- | --- |
+| Token reset | TTL 30 min (configurable: RESET_TOKEN_EXPIRY_MINUTES) |
+| Intentos | Max 3 (configurable: MAX_RESET_ATTEMPTS) |
+| Unicidad | Un token activo por usuario |
 
-## Rutas
-- Solo CONDUCTOR aprobado puede crear rutas.
-- Origen: campus enum.
-- Fecha: YYYY-MM-DD. Hora: HH:mm.
-- Destino base max 255.
-- Asientos totales: 1-8.
-- Precio por pasajero >= 0.1.
-- Stops: minimo 1, con lat/lng y direccion.
-- Busqueda: radio default 1 km (radiusKm 0.1-10).
+## RN-007 Solicitud de conductor
+| Regla | Detalle |
+| --- | --- |
+| Rol | Solo PASAJERO puede solicitar |
+| PayPal | Email valido |
+| Reintento | 7 dias tras rechazo |
 
-## Reservas y pagos
-- PASAJERO con rating < 3 o bloqueado no puede reservar.
-- Si tiene NO_SHOW en efectivo, no puede reservar.
-- Metodos: EFECTIVO, PAYPAL, TARJETA.
-- Pago digital se inicia desde Payments; efectivo no crea pago.
+## RN-008 Documentos de conductor
+| Regla | Detalle |
+| --- | --- |
+| Tipos | LICENCIA, MATRICULA |
+| Tamano | Max 2 MB |
+| Formatos | jpg, png, pdf (firma validada) |
+| Estado | Solo PENDIENTE |
 
-## Cancelacion de reserva
-- Reembolso si se cancela >= 1 hora antes de la salida.
-- Si es tarde (< 1 hora), no hay reembolso.
+## RN-009 Vehiculos
+| Campo | Regla |
+| --- | --- |
+| Marca/Modelo | 2-15 caracteres |
+| Color | 3-10 caracteres |
+| Placa | 3 letras + 4 digitos, unica |
+| Asientos | 1-6 |
+| Actualizacion | Pasa a PENDIENTE y alias a Pasajero#### |
 
-## No-show
-- Conductor puede marcar NO_SHOW despues de 30 min de la salida.
-- La reserva pasa a NO_SHOW y bloquea nuevas reservas en efectivo.
-- Si el pago estaba PENDING, se marca FAILED.
+## RN-010 Rutas
+| Regla | Detalle |
+| --- | --- |
+| Rol | Solo CONDUCTOR aprobado |
+| Fecha | YYYY-MM-DD |
+| Hora | HH:mm |
+| Asientos | 1-8 |
+| Precio | >= 0.1 |
+| Stops | Min 1 |
+| Busqueda | Radio default 1 km (radiusKm 0.1-10) |
 
-## Cancelacion de ruta (conductor)
-- Si cancela dentro de 2 horas: penalizacion de -1 al rating.
-- Se cancelan reservas y se intentan reembolsos de pagos.
+## RN-011 Reservas y pagos
+| Regla | Detalle |
+| --- | --- |
+| Bloqueo | Rating < 3 o bloqueado no reserva |
+| Deuda | NO_SHOW en efectivo bloquea nuevas reservas |
+| Metodos | EFECTIVO, PAYPAL, TARJETA |
+| Pago | Digital inicia en Payments; efectivo no crea pago |
 
-## OTP de viaje
-- OTP de 6 digitos, cifrado en BD.
-- Visible hasta 2 horas despues de la salida para CONFIRMADA/COMPLETADA.
-- Al validar, se marca como usado.
+## RN-012 Cancelacion de reserva
+| Regla | Detalle |
+| --- | --- |
+| Reembolso | >= 1 hora antes |
+| Sin reembolso | < 1 hora antes |
 
-## Calificaciones
-- Puntaje 1 a 5.
-- Ventana de calificacion: 24 horas tras finalizar la ruta.
-- Promedio < 3 bloquea al usuario (isBloqueadoPorRating).
+## RN-013 No-show
+| Regla | Detalle |
+| --- | --- |
+| Tiempo | >= 30 min despues de salida |
+| Estado | Reserva pasa a NO_SHOW |
+| Pago | PENDING -> FAILED |
 
-## Payouts
-- Generacion por periodo (YYYY-MM) desde pagos PAID sin payout.
-- Crea payout PENDING por conductor.
+## RN-014 Cancelacion de ruta
+| Regla | Detalle |
+| --- | --- |
+| Penalizacion | -1 rating si cancela < 2 horas |
+| Reembolsos | Se intentan para pagos PAID/PENDING |
 
-## Perfil de usuario
-- Editable: nombre, apellido, celular.
-- No editable: alias y correo.
+## RN-015 OTP de viaje
+| Regla | Detalle |
+| --- | --- |
+| OTP | 6 digitos, cifrado en BD |
+| Visibilidad | Hasta 2 horas despues de salida |
+| Estados | CONFIRMADA/COMPLETADA |
+| Validacion | Se marca como usado |
+
+## RN-016 Calificaciones
+| Regla | Detalle |
+| --- | --- |
+| Puntaje | 1 a 5 |
+| Ventana | 24 horas |
+| Bloqueo | Promedio < 3 |
+
+## RN-017 Payouts
+| Regla | Detalle |
+| --- | --- |
+| Periodo | YYYY-MM |
+| Fuente | Pagos PAID sin payout |
+| Estado | PENDING |
+
+## RN-018 Perfil
+| Regla | Detalle |
+| --- | --- |
+| Editable | nombre, apellido, celular |
+| No editable | alias, correo |
 
 Ultima actualizacion: 2026-01

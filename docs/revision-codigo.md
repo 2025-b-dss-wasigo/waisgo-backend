@@ -1,6 +1,12 @@
 # Checklist de revision de codigo
 
-Documento para ubicar evidencia en el codigo (C4/STRIDE y seguridad).
+## Objetivo
+Guiar a un revisor hacia la evidencia tecnica en el codigo.
+
+## Alcance
+Aplica a seguridad, reglas operativas y modulos criticos.
+
+Descripcion: Lista corta de archivos para ubicar evidencia de seguridad y reglas en el codigo.
 
 ## Configuracion global
 - `src/main.ts`: helmet, CORS, ValidationPipe, Swagger.

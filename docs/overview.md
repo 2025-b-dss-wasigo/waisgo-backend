@@ -1,7 +1,13 @@
 # Documentacion general
 
-Este documento resume el proposito del backend, su arquitectura a alto nivel y las guias
-para navegar la documentacion tecnica generada con Compodoc.
+## Objetivo
+Brindar una vision general del backend y orientar la lectura de la documentacion.
+
+## Alcance
+Cubre la estructura general del proyecto, modulos principales y uso local de la doc.
+
+Descripcion: Esta seccion explica el proposito del backend, su arquitectura a alto nivel
+y como navegar la documentacion tecnica.
 
 ## Contenido
 - Arquitectura y modulos principales

@@ -1,7 +1,13 @@
 # C4 y STRIDE
 
-Este documento resume la estructura del sistema (C4) y los controles de seguridad
-implementados para apoyar el analisis STRIDE.
+## Objetivo
+Apoyar el analisis C4/STRIDE con contexto, contenedores y mitigaciones.
+
+## Alcance
+Se enfoca en la arquitectura y amenazas relevantes del backend y sus dependencias.
+
+Descripcion: Documento de apoyo para el analisis arquitectonico (C4) y de amenazas
+(STRIDE). Resume el contexto, contenedores, componentes y mitigaciones.
 
 ## C4 - Contexto
 - Usuarios finales: pasajeros, conductores y administradores.

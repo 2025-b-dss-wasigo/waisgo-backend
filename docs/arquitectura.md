@@ -1,5 +1,14 @@
 # Arquitectura
 
+## Objetivo
+Describir la arquitectura por capas y las dependencias clave del sistema.
+
+## Alcance
+Aplica a los modulos internos y las integraciones externas (DB, Redis, storage, correo).
+
+Descripcion: Resume la organizacion en capas, los componentes principales y los
+servicios externos involucrados.
+
 ## Capas
 - HTTP: controllers y DTOs.
 - Dominio: services con reglas de negocio.

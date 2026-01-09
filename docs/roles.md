@@ -1,61 +1,69 @@
-# Roles (alineados al codigo)
+# Roles (formato academico)
 
-## Visitante (no autenticado)
+## Objetivo
+Clarificar permisos y restricciones por rol segun controllers y guards.
+
+## Alcance
+Incluye roles USER, PASAJERO, CONDUCTOR y ADMIN con transiciones.
+
+Descripcion: Resume permisos y restricciones por rol, basados en controllers/guards actuales.
+
+## R-001 Visitante
 Puede:
-- Registro, login, forgot-password, reset-password.
-- Health check.
+1. Registro, login, forgot-password, reset-password.
+2. Health check.
 
 Restricciones:
-- No puede acceder a rutas, reservas ni pagos.
+1. Sin acceso a rutas, reservas ni pagos.
 
-## USER (registrado no verificado)
+## R-002 USER (no verificado)
 Puede:
-- Enviar y confirmar verificacion de correo.
-- Buscar rutas disponibles (routes/available).
+1. Enviar y confirmar verificacion de correo.
+2. Buscar rutas disponibles (routes/available).
 
 Restricciones:
-- No puede reservar ni crear rutas.
-- No puede acceder a pagos ni ratings.
+1. No puede reservar ni crear rutas.
+2. No puede acceder a pagos ni ratings.
 
-## PASAJERO
+## R-003 PASAJERO
 Puede:
-- Buscar rutas y ver detalle de rutas.
-- Reservar asientos y cancelar reservas.
-- Crear pagos (PayPal/Tarjeta) o reservar en efectivo.
-- Solicitar ser conductor.
-- Subir documentos de conductor (LICENCIA, MATRICULA).
-- Ver y usar OTP de viaje.
-- Calificar usuarios dentro de la ventana de 24 horas.
+1. Buscar rutas y ver detalle de rutas.
+2. Reservar asientos y cancelar reservas.
+3. Crear pagos (PayPal/Tarjeta) o reservar en efectivo.
+4. Solicitar ser conductor.
+5. Subir documentos de conductor (LICENCIA, MATRICULA).
+6. Ver y usar OTP de viaje.
+7. Calificar usuarios dentro de 24 horas.
 
 Restricciones:
-- No puede crear rutas.
-- Bloqueo si rating < 3.
+1. No puede crear rutas.
+2. Bloqueo si rating < 3.
 
-## CONDUCTOR
+## R-004 CONDUCTOR
 Puede:
-- Crear y gestionar rutas.
-- Subir documentos de conductor.
-- Registrar y actualizar vehiculos.
-- Validar OTP y marcar NO_SHOW.
-- Finalizar rutas.
-- Ver pagos/payouts propios.
+1. Crear y gestionar rutas.
+2. Subir documentos de conductor.
+3. Registrar y actualizar vehiculos.
+4. Validar OTP y marcar NO_SHOW.
+5. Finalizar rutas.
+6. Ver pagos/payouts propios.
 
 Restricciones:
-- Bloqueo si rating < 3.
-- Actualizar vehiculo vuelve el estado a PENDIENTE hasta nueva aprobacion.
+1. Bloqueo si rating < 3.
+2. Actualizar vehiculo vuelve el estado a PENDIENTE hasta nueva aprobacion.
 
-## ADMIN
+## R-005 ADMIN
 Puede:
-- Aprobar/rechazar documentos y solicitudes de conductor.
-- Cambiar roles.
-- Generar payouts por periodo.
-- Ver transacciones y rutas globales.
+1. Aprobar/rechazar documentos y solicitudes de conductor.
+2. Cambiar roles.
+3. Generar payouts por periodo.
+4. Ver transacciones y rutas globales.
 
 Restricciones:
-- Acciones quedan auditadas.
+1. Acciones auditadas.
 
-## Transicion de roles
-- Visitante -> USER: registro.
-- USER -> PASAJERO: verificacion de correo.
-- PASAJERO -> CONDUCTOR: aprobacion de solicitud.
-- ADMIN: asignacion por administrador.
+## R-006 Transicion de roles
+1. Visitante -> USER: registro.
+2. USER -> PASAJERO: verificacion de correo.
+3. PASAJERO -> CONDUCTOR: aprobacion de solicitud.
+4. ADMIN: asignacion por administrador.
