@@ -1,3 +1,7 @@
+/**
+ * DTO de entrada/salida para mail.
+ */
+
 export interface SendDriverApplicationNotificationOptions {
   applicantName: string;
   applicantEmail: string;

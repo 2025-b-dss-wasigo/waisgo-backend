@@ -1,97 +1,95 @@
-# 🚗 WasiGo Backend
+# WasiGo Backend
 
-Backend de la plataforma de carpooling universitario **WasiGo**, desarrollado con NestJS y TypeScript.
+Backend de la plataforma de carpooling universitario WasiGo, desarrollado con NestJS y TypeScript.
 
-## 📋 Tabla de Contenidos
-
-- [Descripción](#descripción)
-- [Tecnologías](#tecnologías)
-- [Requisitos Previos](#requisitos-previos)
-- [Instalación](#instalación)
-- [Configuración](#configuración)
-- [Comandos](#comandos)
-- [Estructura del Proyecto](#estructura-del-proyecto)
-- [API Endpoints](#api-endpoints)
-- [Base de Datos](#base-de-datos)
-- [Seguridad](#seguridad)
-
----
-
-## 📖 Descripción
-
-WasiGo es una plataforma de carpooling diseñada para la comunidad universitaria de la EPN (Escuela Politécnica Nacional). Permite a estudiantes y personal compartir viajes de manera segura y eficiente.
-
-### Características principales:
-
-- ✅ Autenticación con tokens JWE (cifrados)
-- ✅ Verificación de correo institucional (@epn.edu.ec)
-- ✅ Sistema de rutas y reservas
-- ✅ Gestión de conductores y vehículos
-- ✅ Sistema de calificaciones
-- ✅ Integración con PayPal
-- ✅ Auditoría completa de acciones
+## Tabla de contenidos
+- Descripcion
+- Tecnologias
+- Requisitos previos
+- Instalacion
+- Configuracion
+- Comandos
+- Estructura del proyecto
+- API Endpoints
+- Base de datos
+- Seguridad
+- Documentacion tecnica
 
 ---
 
-## 🛠 Tecnologías
+## Descripcion
 
-| Tecnología | Versión | Propósito         |
-| ---------- | ------- | ----------------- |
-| Node.js    | 20.x    | Runtime           |
-| NestJS     | 11.x    | Framework backend |
-| TypeScript | 5.x     | Lenguaje          |
-| PostgreSQL | 16      | Base de datos     |
-| Redis      | 7       | Cache y sesiones  |
-| TypeORM    | 0.3.x   | ORM               |
-| Jose       | 4.x     | Tokens JWE        |
-| Docker     | -       | Contenedores      |
+WasiGo es una plataforma de carpooling para la comunidad universitaria de la EPN. Permite compartir viajes de forma segura y eficiente.
 
----
-
-## 📦 Requisitos Previos
-
-- **Node.js** >= 20.x
-- **npm** >= 10.x
-- **Docker** y **Docker Compose** (para servicios locales)
-- **Git**
+Caracteristicas principales:
+- Autenticacion con tokens JWE (cifrados)
+- Verificacion de correo institucional (@epn.edu.ec)
+- Sistema de rutas y reservas
+- Gestion de conductores y vehiculos
+- Sistema de calificaciones
+- Integracion con PayPal
+- Auditoria de acciones
 
 ---
 
-## 🚀 Instalación
+## Tecnologias
 
-### 1. Clonar el repositorio
+| Tecnologia | Version | Proposito |
+| --- | --- | --- |
+| Node.js | 20.x | Runtime |
+| NestJS | 11.x | Framework backend |
+| TypeScript | 5.x | Lenguaje |
+| PostgreSQL | 16 | Base de datos |
+| Redis | 7 | Cache y sesiones |
+| TypeORM | 0.3.x | ORM |
+| Jose | 4.x | Tokens JWE |
+| Docker | - | Contenedores |
+
+---
+
+## Requisitos previos
+- Node.js >= 20.x
+- npm >= 10.x
+- Docker y Docker Compose (para servicios locales)
+- Git
+
+---
+
+## Instalacion
+
+1) Clonar el repositorio
 
 ```bash
 git clone https://github.com/tu-usuario/wasigo-backend.git
 cd wasigo-backend
 ```
 
-### 2. Instalar dependencias
+2) Instalar dependencias
 
 ```bash
 npm install
 ```
 
-### 3. Configurar variables de entorno
+3) Configurar variables de entorno
 
 ```bash
 cp .env.template .env
 # Editar .env con tus valores
 ```
 
-### 4. Levantar servicios (PostgreSQL y Redis)
+4) Levantar servicios (PostgreSQL y Redis)
 
 ```bash
 docker-compose up -d
 ```
 
-### 5. Ejecutar migraciones
+5) Ejecutar migraciones
 
 ```bash
 npm run migration:run
 ```
 
-### 6. Iniciar el servidor
+6) Iniciar el servidor
 
 ```bash
 npm run start:dev
@@ -99,12 +97,12 @@ npm run start:dev
 
 ---
 
-## ⚙️ Configuración
+## Configuracion
 
-### Variables de Entorno (.env)
+Variables de entorno (.env):
 
 ```env
-# Configuración general
+# Configuracion general
 NODE_ENV=development
 PORT=3000
 FRONTEND_URL=http://localhost:4200
@@ -119,7 +117,7 @@ DB_MIGRATION_USERNAME=wasigo_migrator
 DB_MIGRATION_PASSWORD=wasigo_migrator_pwd
 DB_SSL=false
 
-# JWT (DEBE ser exactamente 32 caracteres)
+# JWT (debe ser exactamente 32 caracteres)
 JWT_SECRET=tu_secreto_de_32_caracteres_aqui
 JWT_EXPIRES_IN=8h
 
@@ -134,7 +132,7 @@ REDIS_HOST=localhost
 REDIS_PORT=6379
 REDIS_PASSWORD=tu_password_redis
 
-# Correo (Gmail ejemplo)
+# Correo
 MAIL_HOST=smtp.gmail.com
 MAIL_PORT=587
 MAIL_USER=tu_correo@gmail.com
@@ -147,343 +145,90 @@ CLEANUP_UNVERIFIED_DAYS=7
 
 ---
 
-## 📜 Comandos
+## Comandos
 
-### Desarrollo
+Desarrollo:
 
 ```bash
-# Iniciar en modo desarrollo (watch)
 npm run start:dev
-
-# Iniciar en modo debug
-npm run start:debug
-
-# Iniciar en modo producción
-npm run start:prod
 ```
 
-### Build
+Tests:
 
 ```bash
-# Compilar el proyecto
-npm run build
-
-# Limpiar y compilar
-rm -rf dist && npm run build
-```
-
-### Linting y Formato
-
-```bash
-# Ejecutar ESLint con auto-fix
-npm run lint
-
-# Formatear código con Prettier
-npm run format
-```
-
-### Tests
-
-```bash
-# Tests unitarios
 npm run test
-
-# Tests en modo watch
-npm run test:watch
-
-# Tests con cobertura
-npm run test:cov
-
-# Tests end-to-end
-npm run test:e2e
-```
-
-### Migraciones (TypeORM)
-
-```bash
-# Generar nueva migración desde cambios en entidades
-npm run migration:generate src/migrations/NombreMigracion
-
-# Crear migración vacía
-npm run migration:create src/migrations/NombreMigracion
-
-# Ejecutar migraciones pendientes
-npm run migration:run
-
-# Revertir última migración
-npm run migration:revert
-```
-
-### Docker
-
-```bash
-# Levantar servicios (PostgreSQL + Redis)
-docker-compose up -d
-
-# Ver logs de servicios
-docker-compose logs -f
-
-# Detener servicios
-docker-compose down
-
-# Detener y eliminar volúmenes (⚠️ borra datos)
-docker-compose down -v
-
-# Reconstruir contenedores
-docker-compose up -d --build
-```
-
-### Producción
-
-```bash
-# Build de imagen Docker
-docker build -t wasigo-backend .
-
-# Ejecutar contenedor
-docker run -p 3000:3000 --env-file .env wasigo-backend
 ```
 
 ---
 
-## 📁 Estructura del Proyecto
+## Estructura del proyecto
 
 ```
 src/
-├── app.module.ts              # Módulo principal
-├── main.ts                    # Punto de entrada
-├── config/
-│   └── env.schema.ts          # Validación de variables de entorno
-├── migrations/                # Migraciones de TypeORM
-├── redis/                     # Módulo de Redis
-│   ├── redis.module.ts
-│   └── redis.service.ts
-├── modules/
-│   ├── admin/                 # Gestión administrativa
-│   ├── audit/                 # Logs de auditoría
-│   ├── auth/                  # Autenticación (login, registro, reset)
-│   │   ├── Guards/            # JweAuthGuard, RolesGuard
-│   │   ├── Decorators/        # @Public(), @Roles(), @User()
-│   │   └── Models/            # AuthUser, Credential
-│   ├── bookings/              # Reservas de viajes
-│   ├── business/              # Entidades de negocio
-│   ├── common/                # Filtros, tipos compartidos
-│   ├── drivers/               # Gestión de conductores
-│   ├── mail/                  # Envío de correos
-│   ├── otp/                   # Códigos de verificación
-│   ├── payments/              # Pagos y payouts
-│   ├── ratings/               # Calificaciones
-│   ├── routes/                # Rutas de viaje
-│   ├── users/                 # Gestión de usuarios
-│   └── verification/          # Verificación de cuenta
-└── types/                     # Tipos TypeScript globales
+  app.module.ts
+  main.ts
+  config/
+  migrations/
+  redis/
+  modules/
+  types/
 ```
 
 ---
 
-## 🔌 API Endpoints
+## API Endpoints
 
-### Documentación Swagger
-
-Una vez iniciado el servidor, accede a:
+Documentacion Swagger:
 
 ```
 http://localhost:3000/api/docs
 ```
 
-### Endpoints Principales
+---
 
-| Método  | Endpoint                    | Descripción                   | Auth |
-| ------- | --------------------------- | ----------------------------- | ---- |
-| `POST`  | `/api/auth/login`           | Iniciar sesión                | ❌   |
-| `POST`  | `/api/auth/forgot-password` | Solicitar reset de contraseña | ❌   |
-| `POST`  | `/api/auth/reset-password`  | Cambiar contraseña con token  | ❌   |
-| `POST`  | `/api/auth/logout`          | Cerrar sesión                 | ✅   |
-| `POST`  | `/api/users/register`       | Registrar nuevo usuario       | ❌   |
-| `PATCH` | `/api/users/profile`        | Actualizar perfil             | ✅   |
-| `PATCH` | `/api/users/password`       | Cambiar contraseña            | ✅   |
-| `POST`  | `/api/verification/send`    | Enviar código OTP             | ✅   |
-| `POST`  | `/api/verification/confirm` | Confirmar código OTP          | ✅   |
+## Base de datos
+
+Schemas principales:
+- auth
+- business
+- audit
 
 ---
 
-## 🗄 Base de Datos
+## Seguridad
 
-### Schemas
+Resumen de controles:
+- Schemas desacoplados con mapeo encriptado (AES-256-GCM)
+- Tokens JWE (cifrado A256GCM)
+- Rate limiting global
+- Helmet para headers de seguridad
+- Bcrypt con factor 12 para contrasenas
+- Revocacion de tokens via Redis
+- Validacion estricta con class-validator
+- CORS configurado por origen
 
-| Schema     | Propósito                                   |
-| ---------- | ------------------------------------------- |
-| `auth`     | Usuarios, credenciales                      |
-| `business` | Rutas, bookings, drivers, vehicles, ratings |
-| `audit`    | Logs de auditoría, mapeo de identidades     |
-
-### Arquitectura de Seguridad: Schemas Desacoplados
-
-WasiGo implementa un sistema de **desacoplamiento total** entre los schemas de autenticación y negocio para proteger la privacidad del usuario en caso de robo de base de datos.
-
-#### ¿Por qué desacoplar?
-
-Si un atacante obtiene acceso a la base de datos, **NO podrá correlacionar** quién realizó qué acción sin tener acceso a las claves de encriptación del servidor.
-
-#### Cómo funciona:
-
-```
-┌─────────────────┐      ┌──────────────────────┐      ┌────────────────┐
-│   auth schema   │      │    audit schema      │      │ business schema│
-│                 │      │                      │      │                │
-│ auth_users      │─────▶│ user_identity_map    │◀─────│ business_users │
-│ - id (UUID)     │      │ - authUserId ✓       │      │ - id (UUID)    │
-│ - email         │      │ - businessUserId ✓   │      │ - alias        │
-│ - passwordHash  │      │ - deterministicHash  │      │ - NO email     │
-└─────────────────┘      └──────────────────────┘      └────────────────┘
-                                    │
-                                    │ Encriptado con AES-256-GCM
-                                    │ + HMAC-SHA256 hash
-```
-
-**Características de seguridad:**
-
-- ✅ **UUIDs separados**: `auth_users.id` ≠ `business_users.id`
-- ✅ **Sin email en business**: No hay forma de identificar al usuario desde el schema de negocio
-- ✅ **Mapeo encriptado**: La tabla `user_identity_map` usa AES-256-GCM para cifrar ambos UUIDs
-- ✅ **Hash determinístico**: HMAC-SHA256 para buscar mapeos sin exponer UUIDs
-- ✅ **Tokens JWE**: El token contiene `businessUserId`, no `authUserId`
-
-**Variables de entorno requeridas:**
-
-```env
-IDENTITY_HASH_SECRET=tu_secreto_minimo_32_caracteres
-IDENTITY_ENCRYPTION_KEY=64_caracteres_hex_32_bytes
-```
-
-**Protección en caso de robo:**
-
-Si un atacante roba la base de datos pero NO las claves del servidor:
-
-- ❌ No puede leer los UUIDs reales de la tabla de mapeo (están encriptados)
-- ❌ No puede correlacionar `auth_users` con `business_users`
-- ❌ No puede determinar qué usuario hizo qué reserva, pago o calificación
-- ❌ El hash determinístico no revela información del usuario
-
-### Usuarios de BD
-
-| Usuario           | Rol         | Permisos                       |
-| ----------------- | ----------- | ------------------------------ |
-| `wasigo_app`      | Aplicación  | SELECT, INSERT, UPDATE, DELETE |
-| `wasigo_migrator` | Migraciones | ALL PRIVILEGES                 |
-
-### Diagrama Simplificado
-
-```
-auth.auth_users ←→ auth.credentials
-         ↓
-audit.user_identity_map (encrypted)
-         ↓
-business.business_users
-         ↓
-business.drivers → business.vehicles
-         ↓
-business.routes → business.bookings
-         ↓
-business.ratings
-```
+Detalle completo en: docs/seguridad.md
 
 ---
 
-## 🔒 Seguridad
+## Documentacion tecnica
 
-### Características Implementadas
-
-- ✅ **Schemas desacoplados** con UUIDs separados y mapeo encriptado
-- ✅ **Tokens JWE** (cifrado A256GCM) en lugar de JWT plano
-- ✅ **Rate Limiting** con @nestjs/throttler
-- ✅ **Helmet** para headers de seguridad
-- ✅ **Bcrypt** con factor 12 para contraseñas
-- ✅ **Bloqueo por intentos fallidos** (5 intentos → 15 min)
-- ✅ **Revocación de tokens** via Redis
-- ✅ **Validación estricta** con class-validator
-- ✅ **CORS** configurado
-- ✅ **Usuario no-root** en Docker
-
-### Comandos Redis deshabilitados
-
-Por seguridad, los siguientes comandos están deshabilitados en Redis:
-
-- `FLUSHALL`
-- `FLUSHDB`
-- `CONFIG`
-
----
-
-## 🧪 Testing
+Generar documentacion Compodoc:
 
 ```bash
-# Ejecutar todos los tests
-npm run test
-
-# Con cobertura
-npm run test:cov
-
-# Tests e2e
-npm run test:e2e
+npm run docs:build
 ```
 
----
-
-## 📝 Scripts Útiles
-
-### Verificar estado de servicios
+Servir la documentacion:
 
 ```bash
-# PostgreSQL
-docker exec wasigo-postgres pg_isready -U postgres
-
-# Redis
-docker exec wasigo-redis redis-cli -a $REDIS_PASSWORD ping
+npm run docs:serve
 ```
 
-### Acceder a PostgreSQL
-
-```bash
-docker exec -it wasigo-postgres psql -U postgres -d wasigo
-```
-
-### Acceder a Redis
-
-```bash
-docker exec -it wasigo-redis redis-cli -a tu_password
-```
-
-### Limpiar caché de NestJS
-
-```bash
-rm -rf dist node_modules/.cache
-npm run build
-```
+La salida queda en `documentation/`.
 
 ---
 
-## 🤝 Contribución
+## Licencia
 
-1. Fork el proyecto
-2. Crea tu rama (`git checkout -b feature/nueva-funcionalidad`)
-3. Commit tus cambios (`git commit -m 'feat: agregar nueva funcionalidad'`)
-4. Push a la rama (`git push origin feature/nueva-funcionalidad`)
-5. Abre un Pull Request
-
----
-
-## 📄 Licencia
-
-Este proyecto es privado y de uso exclusivo para WasiGo.
-
----
-
-## 👥 Equipo
-
-- **Backend Developer** - Ariel Amaguaña
-
----
-
-<p align="center">
-  Desarrollado con ❤️ para la comunidad EPN
-</p>
+Proyecto privado.

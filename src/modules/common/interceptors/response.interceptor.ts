@@ -1,3 +1,7 @@
+/**
+ * Interceptor para respuestas o pipeline HTTP.
+ */
+
 import {
   Injectable,
   NestInterceptor,

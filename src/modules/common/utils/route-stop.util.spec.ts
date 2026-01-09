@@ -1,3 +1,7 @@
+/**
+ * Pruebas unitarias de common.
+ */
+
 import { haversineDistance, planStopInsertion } from './route-stop.util';
 
 describe('route-stop utils', () => {

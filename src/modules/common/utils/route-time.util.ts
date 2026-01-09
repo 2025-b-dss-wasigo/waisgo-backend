@@ -1,3 +1,7 @@
+/**
+ * Utilidades del modulo common.
+ */
+
 type RouteSchedule = {
   fecha?: string | null;
   horaSalida?: string | null;

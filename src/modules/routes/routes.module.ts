@@ -1,3 +1,7 @@
+/**
+ * Modulo NestJS de routes.
+ */
+
 import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { RoutesController } from './routes.controller';

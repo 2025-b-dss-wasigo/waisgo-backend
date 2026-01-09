@@ -1,3 +1,7 @@
+/**
+ * Utilidades del modulo common.
+ */
+
 import { isPublicId, isUuid } from './public-id.util';
 
 const RELATION_KEY_MAP: Record<string, string> = {

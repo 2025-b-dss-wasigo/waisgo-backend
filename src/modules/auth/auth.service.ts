@@ -1,3 +1,7 @@
+/**
+ * Servicio de negocio del modulo auth.
+ */
+
 import {
   Injectable,
   UnauthorizedException,
@@ -30,6 +34,10 @@ import { AuthUser } from './Models/auth-user.entity';
 import { BusinessService } from '../business/business.service';
 import { IdentityResolverService, IdentityHashService } from '../identity';
 
+/**
+ * Servicio central de autenticacion y sesiones.
+ * @security Maneja JWE, bcrypt, revocacion y auditoria.
+ */
 @Injectable()
 export class AuthService {
   private readonly logger = new Logger(AuthService.name);
@@ -91,6 +99,10 @@ export class AuthService {
     );
   }
 
+  /**
+   * Registra un usuario y crea el mapeo auth/business en una transaccion.
+   * @security Hash de contrasena con bcrypt y mapeo cifrado via Identity.
+   */
   async register(dto: RegisterUserDto, context?: AuthContext) {
     const { password, confirmPassword, nombre, apellido, celular, email } = dto;
     const normalizedEmail = email.toLowerCase().trim();
@@ -197,6 +209,10 @@ export class AuthService {
     }
   }
 
+  /**
+   * Autentica credenciales y emite tokens JWE.
+   * @security Aplica bloqueo por intentos y registra auditoria.
+   */
   async login(dto: LoginDto, context?: AuthContext) {
     try {
       const email = dto.email.trim().toLowerCase();
@@ -307,6 +323,10 @@ export class AuthService {
     }
   }
 
+  /**
+   * Inicia reset de contrasena con limites y token de un solo uso.
+   * @security Evita enumeracion de usuarios en produccion.
+   */
   async forgotPassword(
     email: string,
     context?: AuthContext,
@@ -386,6 +406,10 @@ export class AuthService {
     return { message: ErrorMessages.AUTH.RESET_EMAIL_SENT };
   }
 
+  /**
+   * Completa el reset y revoca sesiones activas.
+   * @security Valida formato UUID y TTL en Redis.
+   */
   async resetPassword(
     token: string,
     newPassword: string,
@@ -444,6 +468,10 @@ export class AuthService {
     return { message: ErrorMessages.AUTH.PASSWORD_RESET_SUCCESS };
   }
 
+  /**
+   * Invalida tokens activos y registra auditoria de salida.
+   * @security Revoca jti en Redis y opcionalmente refresh token.
+   */
   async logout(
     jti: string,
     expSeconds: number,
@@ -476,6 +504,10 @@ export class AuthService {
     return { message: ErrorMessages.AUTH.LOGOUT_SUCCESS };
   }
 
+  /**
+   * Cambia la contrasena y revoca sesiones.
+   * @security Verifica credencial actual y evita reutilizacion.
+   */
   async changePassword(
     businessUserId: string,
     currentPass: string,
@@ -653,7 +685,8 @@ export class AuthService {
   }
 
   /**
-   * Genera un par de tokens (access + refresh)
+   * Genera un par de tokens (access + refresh).
+   * @security Tokens JWE cifrados y refresh con revocacion en Redis.
    */
   private async generateTokenPair(
     businessUserId: string,
@@ -721,7 +754,8 @@ export class AuthService {
   }
 
   /**
-   * Refresca los tokens usando un refresh token válido
+   * Refresca los tokens usando un refresh token valido.
+   * @security Rota refresh token y valida revocacion.
    */
   async refreshTokens(
     refreshToken: string,
@@ -820,7 +854,8 @@ export class AuthService {
   }
 
   /**
-   * Revoca un refresh token específico (para logout completo)
+   * Revoca un refresh token especifico (logout completo).
+   * @security Elimina el jti en Redis.
    */
   async revokeRefreshToken(refreshToken: string): Promise<void> {
     try {

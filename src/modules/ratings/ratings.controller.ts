@@ -1,3 +1,7 @@
+/**
+ * Controlador HTTP del modulo ratings.
+ */
+
 import {
   Controller,
   Get,

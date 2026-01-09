@@ -1,3 +1,7 @@
+/**
+ * Pruebas unitarias de mail.
+ */
+
 import { InternalServerErrorException } from '@nestjs/common';
 import { MailService } from './mail.service';
 import { AuditAction, AuditResult } from '../audit/Enums';

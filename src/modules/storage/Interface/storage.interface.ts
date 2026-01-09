@@ -1,3 +1,7 @@
+/**
+ * Archivo de soporte del modulo.
+ */
+
 export interface StorageProvider {
   upload(params: {
     bucket: string;

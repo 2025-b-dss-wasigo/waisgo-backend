@@ -1,3 +1,7 @@
+/**
+ * Entidad TypeORM del modulo ratings.
+ */
+
 import {
   Entity,
   PrimaryGeneratedColumn,

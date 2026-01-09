@@ -1,3 +1,7 @@
+/**
+ * Modulo NestJS de common.
+ */
+
 import { Module } from '@nestjs/common';
 import { IdempotencyService } from './idempotency.service';
 

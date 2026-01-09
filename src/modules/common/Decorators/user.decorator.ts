@@ -1,3 +1,7 @@
+/**
+ * Archivo de soporte del modulo.
+ */
+
 import { createParamDecorator, ExecutionContext } from '@nestjs/common';
 import { JwtPayload } from '../types';
 

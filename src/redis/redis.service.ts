@@ -1,3 +1,7 @@
+/**
+ * Servicio de negocio del modulo redis.
+ */
+
 import { ConfigService } from '@nestjs/config';
 import {
   Injectable,
@@ -7,6 +11,10 @@ import {
 } from '@nestjs/common';
 import Redis from 'ioredis';
 
+/**
+ * Servicio de cache y revocacion de sesiones en Redis.
+ * @security Centraliza TTLs para tokens y OTP.
+ */
 @Injectable()
 export class RedisService implements OnModuleInit, OnModuleDestroy {
   private readonly logger = new Logger(RedisService.name);
@@ -92,6 +100,10 @@ export class RedisService implements OnModuleInit, OnModuleDestroy {
     return this.client.incr(key);
   }
 
+  /**
+   * Verifica revocacion por jti.
+   * @security Si el formato es invalido, revoca por defecto.
+   */
   async isTokenRevoked(jti: string): Promise<boolean> {
     if (
       !/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(
@@ -104,6 +116,10 @@ export class RedisService implements OnModuleInit, OnModuleDestroy {
     return result !== null;
   }
 
+  /**
+   * Guarda OTP y contadores con TTL.
+   * @security Limita reintentos y reenvios.
+   */
   async saveOtpSession(
     otpKey: string,
     otpValue: string,
@@ -127,6 +143,10 @@ export class RedisService implements OnModuleInit, OnModuleDestroy {
     await pipeline.exec();
   }
 
+  /**
+   * Verifica si el usuario revoco todas sus sesiones.
+   * @security Usa timestamp de revocacion en Redis.
+   */
   async isUserSessionRevoked(
     userId: string,
     tokenIssuedAt: number,
@@ -144,6 +164,10 @@ export class RedisService implements OnModuleInit, OnModuleDestroy {
     return tokenIssuedAt < revokedTimestamp;
   }
 
+  /**
+   * Revoca todas las sesiones de un usuario.
+   * @security Guarda el momento para invalidar tokens antiguos.
+   */
   async revokeUserSessions(
     userId: string,
     ttlSeconds: number,

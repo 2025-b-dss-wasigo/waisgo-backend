@@ -29,7 +29,10 @@
     "migration:run": "npm run typeorm -- -d src/ormconfig.migration.ts migration:run",
     "migration:run:prod": "typeorm -d dist/ormconfig.migration.js migration:run",
     "migration:run:test": "cross-env NODE_ENV=test npm run migration:run",
-    "migration:revert": "npm run typeorm -- -d src/ormconfig.migration.ts migration:revert"
+    "migration:revert": "npm run typeorm -- -d src/ormconfig.migration.ts migration:revert",
+    "docs": "npm run docs:build",
+    "docs:build": "ts-node scripts/generate-docs.ts",
+    "docs:serve": "compodoc -p tsconfig.json -d documentation -s --host 0.0.0.0 --disableCoverage --disableGraph"
   },
   "dependencies": {
     "@nestjs-modules/mailer": "^2.0.2",
@@ -66,6 +69,7 @@
     "typeorm": "^0.3.28"
   },
   "devDependencies": {
+    "@compodoc/compodoc": "^1.1.24",
     "@eslint/eslintrc": "^3.2.0",
     "@eslint/js": "^9.18.0",
     "@nestjs/cli": "^11.0.0",

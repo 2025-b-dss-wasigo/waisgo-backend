@@ -1,3 +1,7 @@
+/**
+ * Servicio de negocio del modulo payments.
+ */
+
 import { BadRequestException, Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { URLSearchParams } from 'node:url';

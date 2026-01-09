@@ -1,3 +1,7 @@
+/**
+ * Filtro de excepciones para respuestas estandarizadas.
+ */
+
 /* eslint-disable @typescript-eslint/no-unsafe-enum-comparison */
 import { ConfigService } from '@nestjs/config';
 import {
@@ -44,6 +48,10 @@ interface DevErrorResponse extends ApiErrorResponse {
   stack?: string;
 }
 
+/**
+ * Filtro global con auditoria de accesos no autorizados.
+ * @security Registra 401/403 con metadata.
+ */
 @Catch()
 export class GlobalExceptionFilter implements ExceptionFilter {
   private readonly logger = new Logger(GlobalExceptionFilter.name);
@@ -164,7 +172,8 @@ export class GlobalExceptionFilter implements ExceptionFilter {
   }
 
   /**
-   * Auditoría de eventos de seguridad (401, 403)
+   * Auditoria de eventos de seguridad (401, 403).
+   * @security Registra accesos no autorizados y denegados.
    */
   private async auditSecurityEvent(
     request: Request,

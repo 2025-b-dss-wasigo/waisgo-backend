@@ -1,3 +1,7 @@
+/**
+ * Controlador HTTP del modulo common.
+ */
+
 import { Controller, Get } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiResponse } from '@nestjs/swagger';
 import {

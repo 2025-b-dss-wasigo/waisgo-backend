@@ -1,3 +1,7 @@
+/**
+ * Controlador HTTP del modulo admin.
+ */
+
 import {
   BadRequestException,
   Controller,

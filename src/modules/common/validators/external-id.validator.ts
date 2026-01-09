@@ -1,3 +1,7 @@
+/**
+ * Archivo de soporte del modulo.
+ */
+
 import { registerDecorator, ValidationOptions } from 'class-validator';
 import { isUuid, isValidIdentifier } from '../utils/public-id.util';
 

@@ -1,3 +1,7 @@
+/**
+ * Controlador HTTP del modulo bookings.
+ */
+
 import {
   Controller,
   Get,

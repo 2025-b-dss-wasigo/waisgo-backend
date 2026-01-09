@@ -1,3 +1,7 @@
+/**
+ * Pruebas unitarias de bookings.
+ */
+
 import {
   BadRequestException,
   ForbiddenException,

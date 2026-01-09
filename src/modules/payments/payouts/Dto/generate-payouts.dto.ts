@@ -1,3 +1,7 @@
+/**
+ * DTO de entrada/salida para payments.
+ */
+
 import { ApiProperty } from '@nestjs/swagger';
 import { IsString, Matches } from 'class-validator';
 import { ErrorMessages } from '../../../common/constants/error-messages.constant';

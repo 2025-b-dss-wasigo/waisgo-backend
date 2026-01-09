@@ -1,3 +1,7 @@
+/**
+ * Modulo NestJS de business.
+ */
+
 import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { BusinessController } from './business.controller';

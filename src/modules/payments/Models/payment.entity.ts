@@ -1,3 +1,7 @@
+/**
+ * Entidad TypeORM del modulo payments.
+ */
+
 import {
   Entity,
   PrimaryGeneratedColumn,

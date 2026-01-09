@@ -1,3 +1,7 @@
+/**
+ * Entidad TypeORM del modulo auth.
+ */
+
 import {
   Entity,
   PrimaryGeneratedColumn,

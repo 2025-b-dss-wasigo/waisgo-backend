@@ -1,3 +1,7 @@
+/**
+ * DTO de entrada/salida para auth.
+ */
+
 import { IsString, Length, Matches, IsNotEmpty } from 'class-validator';
 import { Transform } from 'class-transformer';
 import { ApiProperty } from '@nestjs/swagger';

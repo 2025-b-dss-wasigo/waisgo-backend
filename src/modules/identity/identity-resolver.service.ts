@@ -1,3 +1,7 @@
+/**
+ * Servicio de negocio del modulo identity.
+ */
+
 import { Injectable, NotFoundException, Logger } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, EntityManager } from 'typeorm';
@@ -17,11 +21,8 @@ export interface CreateMappingData {
 }
 
 /**
- * Servicio para resolver identidades entre los schemas auth y business.
- *
- * Este servicio es el ÚNICO punto de correlación entre ambos schemas.
- * Sin las claves de encriptación, es imposible determinar qué usuario
- * de auth corresponde a qué usuario de business.
+ * Servicio de resolucion entre auth y business (mapeo cifrado).
+ * @security Es el unico punto de correlacion entre schemas.
  */
 @Injectable()
 export class IdentityResolverService {
@@ -40,6 +41,7 @@ export class IdentityResolverService {
    * @param authUserId - UUID del usuario en auth schema
    * @param businessUserId - UUID del usuario en business schema
    * @param userData - Datos inmutables para generar el hash determinístico
+   * @security Crea mapeo cifrado entre auth y business.
    */
   async createMapping(
     authUserId: string,
@@ -70,6 +72,7 @@ export class IdentityResolverService {
    * @param authUserId - UUID del usuario en auth schema
    * @param businessUserId - UUID del usuario en business schema
    * @param userData - Datos inmutables para generar el hash determinístico
+   * @security Crea mapeo cifrado dentro de una transaccion.
    */
   async createMappingWithManager(
     manager: EntityManager,
@@ -104,6 +107,7 @@ export class IdentityResolverService {
    * @param authUserId - UUID del usuario en auth schema
    * @returns UUID del usuario en business schema
    * @throws NotFoundException si no se encuentra el mapeo
+   * @security Requiere descifrar el mapeo para evitar exposicion directa.
    */
   async resolveBusinessUserId(authUserId: string): Promise<string> {
     const mappings = await this.identityMapRepo.find();
@@ -132,6 +136,7 @@ export class IdentityResolverService {
    * @param businessUserId - UUID del usuario en business schema
    * @returns UUID del usuario en auth schema
    * @throws NotFoundException si no se encuentra el mapeo
+   * @security Requiere descifrar el mapeo para evitar exposicion directa.
    */
   async resolveAuthUserId(businessUserId: string): Promise<string> {
     const mappings = await this.identityMapRepo.find();
@@ -159,6 +164,7 @@ export class IdentityResolverService {
    * @param deterministicHash - Hash determinístico
    * @returns Identidad resuelta con ambos UUIDs
    * @throws NotFoundException si no se encuentra el mapeo
+   * @security Usa hash deterministico para localizar mapeos sin UUIDs.
    */
   async resolveByHash(deterministicHash: string): Promise<ResolvedIdentity> {
     const mapping = await this.identityMapRepo.findOne({
@@ -182,6 +188,7 @@ export class IdentityResolverService {
    *
    * @param authUserId - UUID del usuario en auth schema
    * @returns Hash determinístico o null si no se encuentra
+   * @security Retorna hash sin exponer IDs de usuario.
    */
   async getDeterministicHash(authUserId: string): Promise<string | null> {
     const mappings = await this.identityMapRepo.find();
@@ -206,6 +213,7 @@ export class IdentityResolverService {
    * Elimina el mapeo de identidad (para eliminación completa de cuenta).
    *
    * @param authUserId - UUID del usuario en auth schema
+   * @security Elimina el vinculo cifrado de identidad.
    */
   async deleteMapping(authUserId: string): Promise<void> {
     const mappings = await this.identityMapRepo.find();
@@ -233,6 +241,7 @@ export class IdentityResolverService {
    *
    * @param manager - EntityManager de la transacción
    * @param authUserId - UUID del usuario en auth schema
+   * @security Elimina el vinculo cifrado en transaccion.
    */
   async deleteMappingWithManager(
     manager: EntityManager,

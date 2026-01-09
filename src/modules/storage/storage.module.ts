@@ -1,3 +1,7 @@
+/**
+ * Modulo NestJS de storage.
+ */
+
 import { Module } from '@nestjs/common';
 import { MinioStorageService } from './minio.storage.service';
 import { OciStorageService } from './oci.storage.service';

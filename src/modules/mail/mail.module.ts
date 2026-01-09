@@ -1,3 +1,7 @@
+/**
+ * Modulo NestJS de mail.
+ */
+
 import { Module } from '@nestjs/common';
 import { MailService } from './mail.service';
 import { AuditModule } from '../audit/audit.module';

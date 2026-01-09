@@ -1,3 +1,7 @@
+/**
+ * Pruebas unitarias de verification.
+ */
+
 import { BadRequestException } from '@nestjs/common';
 import { VerificationService } from './verification.service';
 import { EstadoVerificacionEnum } from '../auth/Enum';

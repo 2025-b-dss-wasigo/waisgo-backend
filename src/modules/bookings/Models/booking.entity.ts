@@ -1,3 +1,7 @@
+/**
+ * Entidad TypeORM del modulo bookings.
+ */
+
 import {
   Entity,
   PrimaryGeneratedColumn,

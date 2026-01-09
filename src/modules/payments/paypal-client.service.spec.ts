@@ -1,3 +1,7 @@
+/**
+ * Pruebas unitarias de payments.
+ */
+
 import { PaypalClientService } from './paypal-client.service';
 import { ErrorMessages } from '../common/constants/error-messages.constant';
 

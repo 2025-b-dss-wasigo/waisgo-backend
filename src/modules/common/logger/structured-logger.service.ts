@@ -1,3 +1,7 @@
+/**
+ * Servicio de negocio del modulo common.
+ */
+
 import { Injectable, LoggerService as NestLoggerService } from '@nestjs/common';
 import {
   SecurityEvent,

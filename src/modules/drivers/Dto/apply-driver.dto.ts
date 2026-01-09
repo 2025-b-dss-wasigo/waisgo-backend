@@ -1,3 +1,7 @@
+/**
+ * DTO de entrada/salida para drivers.
+ */
+
 import { IsEmail, IsNotEmpty, MaxLength } from 'class-validator';
 import { ApiProperty } from '@nestjs/swagger';
 import { ErrorMessages } from '../../common/constants/error-messages.constant';

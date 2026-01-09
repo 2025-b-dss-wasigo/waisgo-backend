@@ -1,3 +1,7 @@
+/**
+ * Utilidades del modulo common.
+ */
+
 import {
   createCipheriv,
   createDecipheriv,
@@ -8,9 +12,17 @@ import {
 
 const OTP_ENCRYPTION_SEPARATOR = '.';
 
+/**
+ * Deriva una clave SHA-256 para cifrar OTP.
+ * @security Evita usar el secreto en claro.
+ */
 const buildKey = (secret: string): Buffer =>
   createHash('sha256').update(secret).digest();
 
+/**
+ * Cifra el OTP con AES-256-GCM.
+ * @security Incluye iv y auth tag en el payload.
+ */
 export const encryptOtp = (otp: string, secret: string): string => {
   const key = buildKey(secret);
   const iv = randomBytes(12);
@@ -25,6 +37,10 @@ export const encryptOtp = (otp: string, secret: string): string => {
   ].join(OTP_ENCRYPTION_SEPARATOR);
 };
 
+/**
+ * Descifra el OTP y valida el auth tag.
+ * @security Retorna null si el payload es invalido.
+ */
 export const decryptOtp = (payload: string, secret: string): string | null => {
   const parts = payload.split(OTP_ENCRYPTION_SEPARATOR);
   if (parts.length !== 3) {
@@ -56,6 +72,10 @@ export const decryptOtp = (payload: string, secret: string): string | null => {
   }
 };
 
+/**
+ * Comparacion en tiempo constante.
+ * @security Reduce riesgo de timing attacks.
+ */
 export const secureCompare = (a: string, b: string): boolean => {
   if (a.length !== b.length) {
     return false;

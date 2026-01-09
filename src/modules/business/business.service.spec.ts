@@ -1,3 +1,7 @@
+/**
+ * Pruebas unitarias de business.
+ */
+
 import { NotFoundException } from '@nestjs/common';
 import { BusinessService } from './business.service';
 import { ErrorMessages } from '../common/constants/error-messages.constant';

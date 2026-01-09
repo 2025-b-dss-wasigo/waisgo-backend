@@ -1,3 +1,7 @@
+/**
+ * Archivo de soporte del modulo.
+ */
+
 // Constantes de mensajes de error para toda la aplicación
 // Usados en servicios, controllers, filters e interceptors
 

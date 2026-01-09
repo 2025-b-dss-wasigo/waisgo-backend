@@ -1,3 +1,7 @@
+/**
+ * Modulo NestJS de vehicle.
+ */
+
 import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { VehiclesController } from './vehicle.controller';

@@ -1,3 +1,7 @@
+/**
+ * Modulo NestJS de audit.
+ */
+
 import { Module } from '@nestjs/common';
 import { AuditService } from './audit.service';
 import { TypeOrmModule } from '@nestjs/typeorm';

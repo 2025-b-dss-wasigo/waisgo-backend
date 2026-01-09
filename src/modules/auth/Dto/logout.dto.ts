@@ -1,3 +1,7 @@
+/**
+ * DTO de entrada/salida para auth.
+ */
+
 import { ApiPropertyOptional } from '@nestjs/swagger';
 import { IsOptional, IsString } from 'class-validator';
 

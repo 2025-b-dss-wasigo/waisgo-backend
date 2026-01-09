@@ -1,3 +1,7 @@
+/**
+ * DTO de entrada/salida para audit.
+ */
+
 import { AuditAction } from '../Enums/audit-actions.enum';
 import { AuditResult } from './../Enums/audit-result.enum';
 import {

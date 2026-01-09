@@ -1,3 +1,7 @@
+/**
+ * Utilidades del modulo common.
+ */
+
 import { randomBytes } from 'node:crypto';
 import type { FindOptionsWhere, Repository } from 'typeorm';
 

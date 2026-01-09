@@ -1,3 +1,7 @@
+/**
+ * Pruebas unitarias de common.
+ */
+
 import { BadRequestException } from '@nestjs/common';
 import { IdempotencyService } from './idempotency.service';
 

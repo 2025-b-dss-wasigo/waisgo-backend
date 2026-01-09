@@ -1,3 +1,7 @@
+/**
+ * Entidad TypeORM del modulo business.
+ */
+
 import {
   Entity,
   PrimaryGeneratedColumn,

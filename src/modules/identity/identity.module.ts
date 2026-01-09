@@ -1,3 +1,7 @@
+/**
+ * Modulo NestJS de identity.
+ */
+
 import { Module, Global } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { IdentityHashService } from './identity-hash.service';

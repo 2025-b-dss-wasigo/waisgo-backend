@@ -1,3 +1,7 @@
+/**
+ * DTO de entrada/salida para auth.
+ */
+
 import { ApiProperty } from '@nestjs/swagger';
 import { IsNotEmpty, IsString } from 'class-validator';
 import { ErrorMessages } from '../../common/constants/error-messages.constant';

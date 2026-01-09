@@ -1,3 +1,7 @@
+/**
+ * Punto de entrada y configuracion global de la app.
+ */
+
 import { NestFactory } from '@nestjs/core';
 import { AppModule } from './app.module';
 import { Logger, ValidationPipe } from '@nestjs/common';

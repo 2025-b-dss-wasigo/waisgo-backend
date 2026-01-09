@@ -1,3 +1,7 @@
+/**
+ * DTO de entrada/salida para bookings.
+ */
+
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import {
   IsEnum,

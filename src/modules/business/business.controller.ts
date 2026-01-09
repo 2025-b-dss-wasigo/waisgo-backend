@@ -1,3 +1,7 @@
+/**
+ * Controlador HTTP del modulo business.
+ */
+
 import {
   Body,
   Controller,

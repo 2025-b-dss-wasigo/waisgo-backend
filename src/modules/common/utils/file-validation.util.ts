@@ -1,3 +1,7 @@
+/**
+ * Utilidades del modulo common.
+ */
+
 const SIGNATURES: Record<string, number[][]> = {
   'image/jpeg': [[0xff, 0xd8, 0xff]],
   'image/jpg': [[0xff, 0xd8, 0xff]],

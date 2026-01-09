@@ -1,3 +1,7 @@
+/**
+ * Configuracion de TypeORM para migraciones.
+ */
+
 import { DataSource } from 'typeorm';
 import * as dotenv from 'dotenv';
 import * as path from 'node:path';

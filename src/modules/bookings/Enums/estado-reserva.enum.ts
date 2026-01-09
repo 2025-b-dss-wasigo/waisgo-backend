@@ -1,3 +1,7 @@
+/**
+ * Enumeraciones del modulo bookings.
+ */
+
 export enum EstadoReservaEnum {
   CONFIRMADA = 'CONFIRMADA',
   CANCELADA = 'CANCELADA',

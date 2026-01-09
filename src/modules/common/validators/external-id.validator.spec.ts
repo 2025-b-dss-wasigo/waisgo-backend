@@ -1,3 +1,7 @@
+/**
+ * Pruebas unitarias de common.
+ */
+
 import { validate } from 'class-validator';
 import {
   IsExternalIdentifier,

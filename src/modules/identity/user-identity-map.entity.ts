@@ -1,3 +1,7 @@
+/**
+ * Entidad TypeORM del modulo identity.
+ */
+
 import {
   Entity,
   PrimaryGeneratedColumn,

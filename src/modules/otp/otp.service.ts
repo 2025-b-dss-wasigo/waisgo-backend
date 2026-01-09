@@ -1,3 +1,7 @@
+/**
+ * Servicio de negocio del modulo otp.
+ */
+
 import {
   Injectable,
   BadRequestException,
@@ -9,6 +13,10 @@ import { randomInt } from 'node:crypto';
 import { RedisService } from 'src/redis/redis.service';
 import { ErrorMessages } from '../common/constants/error-messages.constant';
 
+/**
+ * Servicio de OTP con TTL, limites y comparacion segura.
+ * @security Controla reintentos y reenvios via Redis.
+ */
 @Injectable()
 export class OtpService {
   private readonly logger = new Logger(OtpService.name);
@@ -26,6 +34,9 @@ export class OtpService {
     this.MAX_RESENDS = this.configService.get<number>('MAX_OTP_RESENDS', 3);
   }
 
+  /**
+   * Genera un OTP numerico de 6 digitos.
+   */
   generateOtp(): string {
     return randomInt(100000, 999999).toString();
   }
@@ -38,6 +49,10 @@ export class OtpService {
     };
   }
 
+  /**
+   * Emite OTP y guarda contadores en Redis.
+   * @security Aplica limites de reenvio.
+   */
   async sendOtp(
     userId: string,
   ): Promise<{ code: string; expiresInMinutes: number }> {
@@ -70,6 +85,10 @@ export class OtpService {
     };
   }
 
+  /**
+   * Valida OTP y protege contra brute force.
+   * @security Limita intentos y limpia al expirar.
+   */
   async validateOtp(userId: string, code: string): Promise<void> {
     // Validar formato del código
     if (!/^\d{6}$/.test(code)) {

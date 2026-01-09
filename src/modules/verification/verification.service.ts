@@ -1,3 +1,7 @@
+/**
+ * Servicio de negocio del modulo verification.
+ */
+
 import { SendVerificationEmailOptions } from './../mail/Dto/Send-VerificationEmail.dto';
 import {
   Injectable,

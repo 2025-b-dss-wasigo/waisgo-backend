@@ -1,3 +1,7 @@
+/**
+ * Utilidades del modulo common.
+ */
+
 import { BadRequestException } from '@nestjs/common';
 import type { Request } from 'express';
 import type { AuthContext } from '../types';

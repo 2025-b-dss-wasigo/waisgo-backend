@@ -1,3 +1,7 @@
+/**
+ * Pruebas unitarias de common.
+ */
+
 import { buildAuthContext, validateIdentifier } from './request-context.util';
 import { ErrorMessages } from '../constants/error-messages.constant';
 

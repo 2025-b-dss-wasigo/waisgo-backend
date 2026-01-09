@@ -1,3 +1,7 @@
+/**
+ * Pruebas unitarias de ratings.
+ */
+
 import {
   BadRequestException,
   ForbiddenException,

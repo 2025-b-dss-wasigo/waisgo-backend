@@ -1,3 +1,7 @@
+/**
+ * Servicio de negocio del modulo mail.
+ */
+
 import { SendResetPasswordOptions } from './Dto/Send-ResetPassword.dto';
 import { SendVerificationEmailOptions } from './Dto/Send-VerificationEmail.dto';
 import { SendGenericEmailDto } from './Dto/Send-GenericEmail.dto';

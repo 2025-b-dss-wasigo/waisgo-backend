@@ -53,6 +53,7 @@ Thumbs.db
 build/
 tmp/
 temp/
+documentation/
 
 # SonarQube
 .sonarlint/

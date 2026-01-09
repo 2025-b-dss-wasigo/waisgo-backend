@@ -1,3 +1,7 @@
+/**
+ * Entidad TypeORM del modulo routes.
+ */
+
 import {
   Entity,
   PrimaryGeneratedColumn,

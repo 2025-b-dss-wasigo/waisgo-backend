@@ -1,3 +1,7 @@
+/**
+ * Archivo de soporte del modulo.
+ */
+
 import { SetMetadata } from '@nestjs/common';
 import { RolUsuarioEnum } from 'src/modules/auth/Enum';
 

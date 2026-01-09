@@ -1,3 +1,7 @@
+/**
+ * Pruebas unitarias de common.
+ */
+
 import { lastValueFrom, of } from 'rxjs';
 import { ExecutionContext } from '@nestjs/common';
 import { ResponseInterceptor } from './response.interceptor';

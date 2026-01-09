@@ -1,3 +1,7 @@
+/**
+ * Controlador HTTP del modulo auth.
+ */
+
 import {
   Body,
   Controller,

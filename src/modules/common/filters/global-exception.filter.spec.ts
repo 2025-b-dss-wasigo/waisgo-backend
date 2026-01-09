@@ -1,3 +1,7 @@
+/**
+ * Pruebas unitarias de common.
+ */
+
 import { ArgumentsHost, HttpException, HttpStatus } from '@nestjs/common';
 import type { Request } from 'express';
 import { GlobalExceptionFilter } from './global-exception.filter';

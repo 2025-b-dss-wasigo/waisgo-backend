@@ -1,3 +1,7 @@
+/**
+ * Pruebas unitarias de common.
+ */
+
 import { sanitizeResponseData } from './response-sanitizer.util';
 
 describe('response sanitizer', () => {

@@ -1,3 +1,7 @@
+/**
+ * Modulo NestJS de ratings.
+ */
+
 import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { RatingsController } from './ratings.controller';

@@ -1,3 +1,7 @@
+/**
+ * Pruebas unitarias de payments.
+ */
+
 import { BadRequestException, NotFoundException } from '@nestjs/common';
 import { PayoutsService } from './payouts.service';
 import { EstadoPayoutEnum } from '../Enums';

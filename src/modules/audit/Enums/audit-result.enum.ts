@@ -1,3 +1,7 @@
+/**
+ * Enumeraciones del modulo audit.
+ */
+
 export enum AuditResult {
   // General Results
   SUCCESS = 'SUCCESS',

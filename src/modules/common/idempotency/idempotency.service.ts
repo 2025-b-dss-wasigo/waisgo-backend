@@ -1,3 +1,7 @@
+/**
+ * Servicio de negocio del modulo common.
+ */
+
 import { Injectable, BadRequestException } from '@nestjs/common';
 import { RedisService } from '../../../redis/redis.service';
 import { ErrorMessages } from '../constants/error-messages.constant';

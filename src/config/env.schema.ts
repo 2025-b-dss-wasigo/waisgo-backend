@@ -1,3 +1,7 @@
+/**
+ * Esquema de validacion de variables de entorno.
+ */
+
 import * as Joi from 'joi';
 
 export const envSchema = Joi.object({

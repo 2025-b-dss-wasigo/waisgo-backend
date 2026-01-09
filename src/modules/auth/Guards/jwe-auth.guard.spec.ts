@@ -1,3 +1,7 @@
+/**
+ * Pruebas unitarias de auth.
+ */
+
 import { Reflector } from '@nestjs/core';
 import { jwtDecrypt } from 'jose';
 import { JweAuthGuard } from './jwe-auth.guard';

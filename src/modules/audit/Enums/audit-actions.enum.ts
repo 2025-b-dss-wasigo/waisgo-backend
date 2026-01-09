@@ -1,3 +1,7 @@
+/**
+ * Enumeraciones del modulo audit.
+ */
+
 export enum AuditAction {
   // ============ AUTH ============
   /** Usuario se registró en el sistema */

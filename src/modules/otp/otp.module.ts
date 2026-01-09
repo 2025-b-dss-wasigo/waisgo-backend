@@ -1,3 +1,7 @@
+/**
+ * Modulo NestJS de otp.
+ */
+
 import { Module } from '@nestjs/common';
 import { OtpService } from './otp.service';
 

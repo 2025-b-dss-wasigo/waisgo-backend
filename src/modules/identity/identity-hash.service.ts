@@ -1,3 +1,7 @@
+/**
+ * Servicio de negocio del modulo identity.
+ */
+
 import { Injectable } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import {
@@ -9,13 +13,8 @@ import {
 } from 'crypto';
 
 /**
- * Servicio para generar hashes determinísticos y encriptar/desencriptar
- * los identificadores de usuario entre schemas auth y business.
- *
- * SEGURIDAD:
- * - Usa HMAC-SHA256 para hashes determinísticos
- * - Usa AES-256-GCM para encriptación simétrica
- * - Las claves deben mantenerse seguras y nunca exponerse
+ * Servicio para hash deterministico y cifrado de IDs de identidad.
+ * @security Usa HMAC-SHA256 y AES-256-GCM con claves en env.
  */
 @Injectable()
 export class IdentityHashService {
@@ -44,6 +43,7 @@ export class IdentityHashService {
    * Este hash se usa para correlacionar auth y business SIN exponer el UUID.
    *
    * IMPORTANTE: Los datos de entrada NUNCA deben cambiar después del registro.
+   * @security No revela el UUID real del usuario.
    *
    * @param data - Datos inmutables del usuario
    * @returns Hash de 32 caracteres hexadecimales
@@ -65,6 +65,7 @@ export class IdentityHashService {
   /**
    * Encripta un UUID para almacenamiento seguro en la tabla de mapeo.
    * Usa AES-256-GCM con IV aleatorio y authentication tag.
+   * @security El auth tag permite detectar alteraciones.
    *
    * @param plaintext - UUID a encriptar
    * @returns Cadena encriptada en formato "iv:authTag:encrypted"
@@ -84,6 +85,7 @@ export class IdentityHashService {
 
   /**
    * Desencripta un UUID desde la tabla de mapeo.
+   * @security Falla si el formato es invalido o el tag no coincide.
    *
    * @param ciphertext - Cadena encriptada en formato "iv:authTag:encrypted"
    * @returns UUID desencriptado
@@ -117,6 +119,7 @@ export class IdentityHashService {
   /**
    * Verifica que un hash corresponda a los datos proporcionados.
    * Usa comparación en tiempo constante para prevenir timing attacks.
+   * @security Mitiga ataques por timing.
    *
    * @param hash - Hash a verificar
    * @param data - Datos originales

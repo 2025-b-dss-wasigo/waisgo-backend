@@ -1,3 +1,7 @@
+/**
+ * Pruebas unitarias de payments.
+ */
+
 import {
   BadRequestException,
   ConflictException,

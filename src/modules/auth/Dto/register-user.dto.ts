@@ -1,3 +1,7 @@
+/**
+ * DTO de entrada/salida para auth.
+ */
+
 import {
   IsEmail,
   IsNotEmpty,

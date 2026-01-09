@@ -1,3 +1,7 @@
+/**
+ * Enumeraciones del modulo drivers.
+ */
+
 export enum EstadoConductorEnum {
   PENDIENTE = 'PENDIENTE',
   APROBADO = 'APROBADO',

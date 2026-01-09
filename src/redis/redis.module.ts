@@ -1,3 +1,7 @@
+/**
+ * Modulo NestJS de redis.
+ */
+
 import { Global, Module } from '@nestjs/common';
 import { RedisService } from './redis.service';
 

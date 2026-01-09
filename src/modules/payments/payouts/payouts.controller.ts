@@ -1,3 +1,7 @@
+/**
+ * Controlador HTTP del modulo payments.
+ */
+
 import {
   Controller,
   Get,

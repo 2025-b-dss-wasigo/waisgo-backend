@@ -1,3 +1,7 @@
+/**
+ * Controlador HTTP del modulo verification.
+ */
+
 import {
   Controller,
   Post,

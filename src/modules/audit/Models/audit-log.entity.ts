@@ -1,3 +1,7 @@
+/**
+ * Entidad TypeORM del modulo audit.
+ */
+
 import {
   Entity,
   PrimaryGeneratedColumn,

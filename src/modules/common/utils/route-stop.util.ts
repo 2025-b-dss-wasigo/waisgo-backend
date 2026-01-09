@@ -1,3 +1,7 @@
+/**
+ * Utilidades del modulo common.
+ */
+
 type StopLike = {
   lat: number | string;
   lng: number | string;

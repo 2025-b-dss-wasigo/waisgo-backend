@@ -1,3 +1,7 @@
+/**
+ * Servicio de negocio del modulo business.
+ */
+
 import { StorageService } from './../storage/storage.service';
 import {
   Injectable,

@@ -1,3 +1,7 @@
+/**
+ * Servicio de negocio del modulo storage.
+ */
+
 import { ConfigService } from '@nestjs/config';
 import {
   Injectable,

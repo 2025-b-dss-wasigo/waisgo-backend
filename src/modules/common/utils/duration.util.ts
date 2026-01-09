@@ -1,3 +1,7 @@
+/**
+ * Utilidades del modulo common.
+ */
+
 export const parseDurationToSeconds = (
   value: string | number | undefined,
   fallbackSeconds: number,

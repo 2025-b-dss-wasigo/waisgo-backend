@@ -1,3 +1,7 @@
+/**
+ * Guardia de seguridad para control de acceso.
+ */
+
 import {
   CanActivate,
   ExecutionContext,
@@ -11,12 +15,20 @@ import { ROLES_KEY } from 'src/modules/common/Decorators';
 import type { Request } from 'express';
 import { ErrorMessages } from '../../common/constants/error-messages.constant';
 
+/**
+ * Guardia de autorizacion por roles.
+ * @security Bloquea accesos fuera del rol esperado.
+ */
 @Injectable()
 export class RolesGuard implements CanActivate {
   private readonly logger = new Logger('RolesGuard');
 
   constructor(private readonly reflector: Reflector) {}
 
+  /**
+   * Evalua el rol del usuario contra el requerido por el handler.
+   * @security Bloquea acceso si el rol no cumple.
+   */
   canActivate(context: ExecutionContext): boolean {
     const requiredRoles = this.reflector.getAllAndOverride<RolUsuarioEnum[]>(
       ROLES_KEY,

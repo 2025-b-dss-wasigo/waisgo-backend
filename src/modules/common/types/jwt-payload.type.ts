@@ -1,3 +1,7 @@
+/**
+ * Tipos compartidos del proyecto.
+ */
+
 import { RolUsuarioEnum } from 'src/modules/auth/Enum';
 
 /**

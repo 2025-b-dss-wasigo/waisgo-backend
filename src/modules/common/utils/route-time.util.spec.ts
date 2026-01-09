@@ -1,3 +1,7 @@
+/**
+ * Pruebas unitarias de common.
+ */
+
 import { getDepartureDate } from './route-time.util';
 
 describe('route-time utils', () => {

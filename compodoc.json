@@ -1,0 +1,13 @@
+{
+  "tsconfig": "tsconfig.json",
+  "output": "documentation",
+  "includes": "docs",
+  "includesName": "Documentacion",
+  "exclude": [
+    "**/*.spec.ts",
+    "**/*.e2e-spec.ts"
+  ],
+  "disableCoverage": true,
+  "disableGraph": true,
+  "disablePrivateOrInternal": true
+}

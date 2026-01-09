@@ -1,3 +1,7 @@
+/**
+ * Guardia de seguridad para control de acceso.
+ */
+
 import {
   CanActivate,
   ExecutionContext,
@@ -27,6 +31,10 @@ interface JwtPayloadInternal {
   aud: string;
 }
 
+/**
+ * Guardia de autenticacion basada en JWE.
+ * @security Valida issuer/audience, exp y revocacion en Redis.
+ */
 @Injectable()
 export class JweAuthGuard implements CanActivate {
   private readonly secretKey: Uint8Array;
@@ -48,6 +56,10 @@ export class JweAuthGuard implements CanActivate {
     this.secretKey = new TextEncoder().encode(jwtSecret);
   }
 
+  /**
+   * Valida el token JWE y construye el contexto de usuario.
+   * @security Verifica issuer/audience, exp y revocacion en Redis.
+   */
   async canActivate(context: ExecutionContext): Promise<boolean> {
     const isPublic = this.reflector.getAllAndOverride<boolean>(IS_PUBLIC_KEY, [
       context.getHandler(),
@@ -118,6 +130,10 @@ export class JweAuthGuard implements CanActivate {
     }
   }
 
+  /**
+   * Extrae el token desde el header Authorization.
+   * @security Valida formato y longitud para reducir abuso.
+   */
   private extractTokenFromHeader(request: Request): string | undefined {
     const authHeader = request.headers.authorization;
 

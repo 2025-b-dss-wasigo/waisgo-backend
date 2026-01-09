@@ -1,3 +1,7 @@
+/**
+ * DTO de entrada/salida para ratings.
+ */
+
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import {
   IsInt,

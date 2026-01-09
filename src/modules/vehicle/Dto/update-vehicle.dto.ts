@@ -1,3 +1,7 @@
+/**
+ * DTO de entrada/salida para vehicle.
+ */
+
 import { ApiPropertyOptional } from '@nestjs/swagger';
 import {
   IsString,

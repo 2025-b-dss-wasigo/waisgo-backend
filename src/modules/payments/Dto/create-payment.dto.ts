@@ -1,3 +1,7 @@
+/**
+ * DTO de entrada/salida para payments.
+ */
+
 import { ApiProperty } from '@nestjs/swagger';
 import { IsEnum, IsString } from 'class-validator';
 import { MetodoPagoEnum } from '../Enums/metodo-pago.enum';

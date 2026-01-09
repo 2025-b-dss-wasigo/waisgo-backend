@@ -1,3 +1,7 @@
+/**
+ * Servicio de negocio del modulo payments.
+ */
+
 import {
   Injectable,
   NotFoundException,

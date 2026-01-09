@@ -1,3 +1,7 @@
+/**
+ * DTO de entrada/salida para routes.
+ */
+
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { IsNumber, Min, Max, IsOptional, IsDateString } from 'class-validator';
 import { Type } from 'class-transformer';

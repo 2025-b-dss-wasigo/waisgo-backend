@@ -1,3 +1,7 @@
+/**
+ * Pruebas unitarias de auth.
+ */
+
 import {
   UnauthorizedException,
   NotFoundException,

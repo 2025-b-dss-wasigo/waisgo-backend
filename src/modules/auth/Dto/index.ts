@@ -1,3 +1,7 @@
+/**
+ * Punto de exportacion del modulo auth.
+ */
+
 export * from './forgot-password.dto';
 export * from './login.dto';
 export * from './logout.dto';

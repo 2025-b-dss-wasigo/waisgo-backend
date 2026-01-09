@@ -1,3 +1,7 @@
+/**
+ * Servicio de negocio del modulo ratings.
+ */
+
 import {
   Injectable,
   NotFoundException,

@@ -1,3 +1,7 @@
+/**
+ * Servicio de negocio del modulo admin.
+ */
+
 import { Injectable, Logger } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, DataSource } from 'typeorm';
