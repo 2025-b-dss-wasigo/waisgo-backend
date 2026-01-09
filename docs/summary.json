@@ -14,5 +14,17 @@
   {
     "title": "C4 y STRIDE",
     "file": "c4-stride.md"
+  },
+  {
+    "title": "Reglas de negocio",
+    "file": "reglas-negocio.md"
+  },
+  {
+    "title": "Roles",
+    "file": "roles.md"
+  },
+  {
+    "title": "Checklist revision de codigo",
+    "file": "revision-codigo.md"
   }
 ]

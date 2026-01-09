@@ -11,10 +11,10 @@ implementados para apoyar el analisis STRIDE.
 
 ## C4 - Contenedores
 - API (NestJS): expone endpoints REST, aplica auth y validaciones.
-- Base de datos (PostgreSQL): datos de auth, business y audit en schemas separados.
+- Base de datos (PostgreSQL): datos en schemas auth, business y audit.
 - Cache y sesiones (Redis): revocacion de tokens, OTP y limites.
-- Almacenamiento de archivos (MinIO/OCI): documentos y recursos externos.
-- Notificaciones (SMTP): envio de correos de verificacion y reset.
+- Almacenamiento (MinIO/OCI): documentos y recursos externos.
+- Notificaciones (SMTP): verificacion y reset de contrasena.
 
 ## C4 - Componentes (backend)
 - auth: login, register, reset, refresh y logout.
@@ -22,29 +22,29 @@ implementados para apoyar el analisis STRIDE.
 - audit: eventos de seguridad y trazabilidad.
 - common: guards, filtros, interceptores, utils.
 - payments: integracion con PayPal y payouts.
-- routes/bookings/ratings/drivers/vehicle/business: dominio del carpooling.
+- routes/bookings/ratings/drivers/vehicle/business: dominio de carpooling.
 
 ## STRIDE - Riesgos y mitigaciones
 ### Spoofing
 - JWE cifrados con issuer/audience.
-- Guardia JWE valida firma, exp y revocacion.
+- Guardia JWE valida exp y revocacion.
 
 ### Tampering
 - AES-256-GCM en identity para detectar modificaciones.
-- Validacion estricta de payloads con class-validator.
+- Validacion estricta con class-validator.
 
 ### Repudiation
-- Auditoria de eventos criticos (login, logout, reset, accesos denegados).
+- Auditoria de eventos criticos.
 - Registro de IP y user-agent.
 
 ### Information Disclosure
 - Schemas desacoplados con mapeo cifrado.
-- Tokens usan businessUserId, no authUserId.
+- Tokens usan businessUserId.
 - CORS restringido por origen.
 
 ### Denial of Service
-- Rate limiting global (throttler).
-- Limites de intentos y reenvios en OTP y reset.
+- Rate limiting global.
+- Limites de intentos en OTP y reset.
 
 ### Elevation of Privilege
 - RolesGuard valida roles por endpoint.
@@ -62,8 +62,3 @@ implementados para apoyar el analisis STRIDE.
 - Documentacion tecnica con Compodoc y seccion de docs.
 - Comentarios TSDoc en funciones clave de seguridad.
 - Docs de arquitectura y seguridad en `docs/`.
-
-## Referencias internas
-- docs/overview.md
-- docs/arquitectura.md
-- docs/seguridad.md

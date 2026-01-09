@@ -1,26 +1,25 @@
 # Documentacion general
 
-Esta documentacion describe la arquitectura, flujos y decisiones de seguridad del backend.
-Se genera con Compodoc y se complementa con esta guia general.
+Este documento resume el proposito del backend, su arquitectura a alto nivel y las guias
+para navegar la documentacion tecnica generada con Compodoc.
 
 ## Contenido
 - Arquitectura y modulos principales
 - Flujo de autenticacion y sesiones
 - Controles de seguridad
-- Operacion y entorno
+- Operacion local
 
 ## Arquitectura general
-El backend usa NestJS y organiza la logica por modulos. La autenticacion y el dominio
-de negocio estan desacoplados para reducir riesgo ante fuga de datos.
+El backend usa NestJS y organiza la logica por modulos. La identidad de auth y business
+esta desacoplada para reducir riesgo ante fuga de datos.
 
 ## Modulos principales
 - auth: login, registro, refresh y recuperacion de contrasena.
-- business: perfiles y entidades del dominio de negocio.
-- drivers, routes, bookings, ratings: funcionalidades del carpooling.
-- payments: integracion de pagos y payouts.
-- audit: registro de eventos de seguridad.
 - identity: mapeo cifrado entre auth y business.
+- audit: eventos de seguridad y trazabilidad.
 - common: filtros, interceptores, utils y tipos compartidos.
+- payments: integracion con PayPal y payouts.
+- routes, bookings, ratings, drivers, vehicle, business: dominio de carpooling.
 
 ## Flujo de autenticacion (resumen)
 1) Login valida credenciales con bcrypt.

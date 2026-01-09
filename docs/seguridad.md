@@ -10,7 +10,7 @@ Esta guia documenta los controles de seguridad implementados en el backend.
 
 ## Identidad desacoplada (auth/business)
 - UUIDs separados para auth y business.
-- Mapeo cifrado con AES-256-GCM en tabla `audit.user_identity_map`.
+- Mapeo cifrado con AES-256-GCM en `audit.user_identity_map`.
 - Hash deterministico con HMAC-SHA256 para correlacion sin exponer UUIDs.
 - Sin emails en `business` para reducir identificacion directa.
 
@@ -72,12 +72,8 @@ Esta guia documenta los controles de seguridad implementados en el backend.
 - src/modules/common/filters/global-exception.filter.ts (auditoria 401/403).
 
 ## Generar documentacion tecnica
-
 ```bash
-# Generar documentacion estatica
 npm run docs:build
-
-# Servir documentacion local
 npm run docs:serve
 ```
 
