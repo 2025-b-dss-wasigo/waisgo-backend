@@ -133,10 +133,6 @@ export class VehicleService {
 
     const responseVehicle = { ...savedVehicle };
 
-    if (role !== RolUsuarioEnum.PASAJERO) {
-      delete (responseVehicle as Partial<Vehicle>).driverId;
-    }
-
     return {
       message: ErrorMessages.DRIVER.VEHICLE_CREATED,
       vehicle: responseVehicle as Vehicle,
