@@ -23,6 +23,7 @@ import type { AuthContext } from '../common/types';
 import { ErrorMessages } from '../common/constants/error-messages.constant';
 import { buildIdWhere, generatePublicId } from '../common/utils/public-id.util';
 import { BusinessService } from '../business/business.service';
+import { RolUsuarioEnum } from '../auth/Enum';
 
 @Injectable()
 export class VehicleService {
@@ -88,8 +89,12 @@ export class VehicleService {
     businessUserId: string,
     dto: CreateVehicleDto,
     context: AuthContext,
+    role: RolUsuarioEnum,
   ): Promise<{ message: string; vehicle: Vehicle }> {
-    const driver = await this.getApprovedDriver(businessUserId);
+    const driver =
+      role === RolUsuarioEnum.PASAJERO
+        ? await this.getActiveDriver(businessUserId)
+        : await this.getApprovedDriver(businessUserId);
 
     const normalizedPlaca = dto.placa.toUpperCase();
     const existingPlaca = await this.vehicleRepo.findOne({
@@ -126,9 +131,15 @@ export class VehicleService {
       `Vehicle created: ${savedVehicle.id} for driver ${driver.id}`,
     );
 
+    const responseVehicle = { ...savedVehicle };
+
+    if (role !== RolUsuarioEnum.PASAJERO) {
+      delete (responseVehicle as Partial<Vehicle>).driverId;
+    }
+
     return {
       message: ErrorMessages.DRIVER.VEHICLE_CREATED,
-      vehicle: savedVehicle,
+      vehicle: responseVehicle as Vehicle,
     };
   }
 

@@ -66,7 +66,7 @@ export class VehiclesController {
   ) {
     const safeUserId = await this.validateUserId(user.id);
     const context = buildAuthContext(req);
-    return this.vehicleService.create(safeUserId, dto, context);
+    return this.vehicleService.create(safeUserId, dto, context, user.role);
   }
 
   @Roles(RolUsuarioEnum.CONDUCTOR)

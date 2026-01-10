@@ -13,6 +13,7 @@ import { EstadoConductorEnum } from '../drivers/Enums/estado-conductor.enum';
 import { ErrorMessages } from '../common/constants/error-messages.constant';
 import type { AuthContext } from '../common/types';
 import * as publicIdUtil from '../common/utils/public-id.util';
+import { RolUsuarioEnum } from '../auth/Enum';
 
 describe('VehicleService', () => {
   const vehicleRepo = {
@@ -62,6 +63,7 @@ describe('VehicleService', () => {
           asientosDisponibles: 4,
         },
         context,
+        RolUsuarioEnum.CONDUCTOR,
       ),
     ).rejects.toThrow(ForbiddenException);
   });
@@ -84,6 +86,7 @@ describe('VehicleService', () => {
           asientosDisponibles: 4,
         },
         context,
+        RolUsuarioEnum.CONDUCTOR,
       ),
     ).rejects.toThrow(ConflictException);
   });
@@ -111,12 +114,42 @@ describe('VehicleService', () => {
         asientosDisponibles: 4,
       },
       context,
+      RolUsuarioEnum.CONDUCTOR,
     );
 
     expect(response.message).toBe(ErrorMessages.DRIVER.VEHICLE_CREATED);
     expect(vehicleRepo.save).toHaveBeenCalled();
 
     idSpy.mockRestore();
+  });
+
+  it('omits driverId when role is not passenger', async () => {
+    driverRepo.findOne.mockResolvedValue({
+      id: 'driver-id',
+      estado: EstadoConductorEnum.APROBADO,
+    });
+    vehicleRepo.findOne.mockResolvedValue(null);
+    vehicleRepo.create.mockImplementation((input) => ({ ...input }));
+    vehicleRepo.save.mockResolvedValue({
+      id: 'vehicle-id',
+      driverId: 'driver-id',
+      publicId: 'VEH_123',
+    });
+
+    const response = await service.create(
+      'user-id',
+      {
+        marca: 'Marca',
+        modelo: 'Modelo',
+        color: 'Color',
+        placa: 'abc1234',
+        asientosDisponibles: 4,
+      },
+      context,
+      RolUsuarioEnum.CONDUCTOR,
+    );
+
+    expect(response.vehicle).not.toHaveProperty('driverId');
   });
 
   it('returns empty list when driver does not exist', async () => {
