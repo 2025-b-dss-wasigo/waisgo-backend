@@ -25,6 +25,8 @@ import { generatePublicId } from '../common/utils/public-id.util';
 import { RedisService } from 'src/redis/redis.service';
 import { parseDurationToSeconds } from '../common/utils/duration.util';
 import { hasValidFileSignature } from '../common/utils/file-validation.util';
+import { IdentityResolverService } from '../identity';
+import { AuthUser } from '../auth/Models/auth-user.entity';
 
 type AliasPrefix = 'Pasajero' | 'Conductor';
 
@@ -32,7 +34,6 @@ type AliasPrefix = 'Pasajero' | 'Conductor';
 export class BusinessService {
   private readonly logger = new Logger(BusinessService.name);
   private readonly DEFAULT_REVOKE_TTL_SECONDS = 8 * 60 * 60;
-  private readonly SOFT_DELETE_BLOCK_YEARS = 100;
   private readonly MAX_PROFILE_PHOTO_SIZE = 2 * 1024 * 1024;
   private readonly ALLOWED_PROFILE_MIMES = [
     'image/jpeg',
@@ -50,6 +51,9 @@ export class BusinessService {
     private readonly config: ConfigService,
     private readonly auditService: AuditService,
     private readonly redisService: RedisService,
+    private readonly identityResolver: IdentityResolverService,
+    @InjectRepository(AuthUser)
+    private readonly authUserRepo: Repository<AuthUser>,
   ) {}
 
   private randomAliasSuffix(): string {
@@ -300,6 +304,20 @@ export class BusinessService {
       throw new NotFoundException(ErrorMessages.USER.PROFILE_NOT_FOUND);
     }
 
+    // Obtener el authUserId usando el IdentityResolverService
+    const authUserId =
+      await this.identityResolver.resolveAuthUserId(businessUserId);
+
+    // Buscar el email en la tabla de AuthUser
+    let email: string | undefined = undefined;
+    if (authUserId) {
+      const authUser = await this.authUserRepo.findOne({
+        where: { id: authUserId },
+        select: ['email'],
+      });
+      email = authUser?.email;
+    }
+
     const avatarUrl = user.profile.fotoPerfilUrl
       ? await this.storageService.getSignedUrl(
           this.config.getOrThrow('STORAGE_PROFILE_BUCKET'),
@@ -311,6 +329,7 @@ export class BusinessService {
     return {
       id: user.id,
       publicId: user.publicId,
+      email,
       alias: user.alias,
       nombre: user.profile.nombre,
       apellido: user.profile.apellido,
