@@ -48,7 +48,7 @@ export class VehiclesController {
     return validateIdentifier(vehicleId);
   }
 
-  @Roles(RolUsuarioEnum.CONDUCTOR)
+  @Roles(RolUsuarioEnum.CONDUCTOR, RolUsuarioEnum.PASAJERO)
   @Post()
   @HttpCode(HttpStatus.CREATED)
   @ApiOperation({ summary: 'Registrar vehículo' })
