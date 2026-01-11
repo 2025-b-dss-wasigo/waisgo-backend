@@ -45,6 +45,16 @@ export class ResponseInterceptor<T> implements NestInterceptor<
     context: ExecutionContext,
     next: CallHandler,
   ): Observable<ApiResponse<T>> {
+    const request = context.switchToHttp().getRequest();
+    const path = request?.originalUrl || request?.url || '';
+    const routePath = request?.route?.path || '';
+    const isMetrics =
+      routePath === '/metrics' || path.startsWith('/api/metrics');
+
+    if (isMetrics) {
+      return next.handle() as Observable<ApiResponse<T>>;
+    }
+
     return next.handle().pipe(map((data) => this.transformResponse(data)));
   }
 

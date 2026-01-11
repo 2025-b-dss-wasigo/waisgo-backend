@@ -1,0 +1,19 @@
+/**
+ * Controlador de metricas.
+ */
+
+import { Controller, Get, Header } from '@nestjs/common';
+import { Public } from '../Decorators';
+import { MetricsService } from './metrics.service';
+
+@Controller('metrics')
+export class MetricsController {
+  constructor(private readonly metricsService: MetricsService) {}
+
+  @Get()
+  @Public()
+  @Header('Content-Type', 'text/plain; version=0.0.4')
+  async getMetrics(): Promise<string> {
+    return this.metricsService.getMetrics();
+  }
+}

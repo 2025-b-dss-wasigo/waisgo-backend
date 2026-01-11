@@ -8,6 +8,7 @@ import {
   BadRequestException,
   ForbiddenException,
   Logger,
+  Optional,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, In, MoreThan, LessThanOrEqual } from 'typeorm';
@@ -38,6 +39,7 @@ import {
 } from '../common/utils/route-stop.util';
 import { getDepartureDate } from '../common/utils/route-time.util';
 import { GoogleMapsService } from '../common/google-maps/google-maps.service';
+import { MetricsService } from '../common/metrics/metrics.service';
 
 @Injectable()
 export class RoutesService {
@@ -62,6 +64,7 @@ export class RoutesService {
     private readonly paymentsService: PaymentsService,
     private readonly auditService: AuditService,
     private readonly googleMapsService: GoogleMapsService,
+    @Optional() private readonly metricsService?: MetricsService,
   ) {}
 
   private async ensureRouteAccess(
@@ -144,6 +147,7 @@ export class RoutesService {
         route.estado = EstadoRutaEnum.FINALIZADA;
         await this.routeRepository.save(route);
         finalized += 1;
+        this.metricsService?.routesEventsTotal.labels('auto_finalized').inc();
 
         await this.auditService.logEvent({
           action: AuditAction.ROUTE_COMPLETED,
@@ -253,6 +257,7 @@ export class RoutesService {
     });
 
     const savedRoute = await this.routeRepository.save(route);
+    this.metricsService?.routesEventsTotal.labels('created').inc();
 
     await this.auditService.logEvent({
       action: AuditAction.ROUTE_CREATED,
@@ -490,6 +495,7 @@ export class RoutesService {
 
     await this.routeStopRepository.save(newStop);
     await this.refreshRoutePolyline(route.id);
+    this.metricsService?.routesEventsTotal.labels('stop_added').inc();
 
     await this.auditService.logEvent({
       action: AuditAction.ROUTE_UPDATED,
@@ -553,6 +559,7 @@ export class RoutesService {
     route.fecha = fecha;
     route.horaSalida = horaSalida;
     await this.routeRepository.save(route);
+    this.metricsService?.routesEventsTotal.labels('schedule_updated').inc();
 
     return { message: ErrorMessages.ROUTES.ROUTE_SCHEDULE_UPDATED };
   }
@@ -598,6 +605,7 @@ export class RoutesService {
 
     route.startedAt = new Date();
     await this.routeRepository.save(route);
+    this.metricsService?.routesEventsTotal.labels('started').inc();
 
     await this.auditService.logEvent({
       action: AuditAction.ROUTE_STARTED,
@@ -658,6 +666,7 @@ export class RoutesService {
     route.estado = EstadoRutaEnum.CANCELADA;
     route.mensaje = ErrorMessages.ROUTES.ROUTE_CANCELLED;
     await this.routeRepository.save(route);
+    this.metricsService?.routesEventsTotal.labels('cancelled').inc();
 
     await this.bookingRepository.update(
       { routeId: route.id, estado: In([EstadoReservaEnum.CONFIRMADA]) },
@@ -743,6 +752,7 @@ export class RoutesService {
 
     route.estado = EstadoRutaEnum.FINALIZADA;
     await this.routeRepository.save(route);
+    this.metricsService?.routesEventsTotal.labels('finalized').inc();
 
     await this.auditService.logEvent({
       action: AuditAction.ROUTE_COMPLETED,

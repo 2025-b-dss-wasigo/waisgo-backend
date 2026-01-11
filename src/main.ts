@@ -11,19 +11,26 @@ import { AuditService } from './modules/audit/audit.service';
 import { SwaggerModule, DocumentBuilder } from '@nestjs/swagger';
 import helmet from 'helmet';
 import { ConfigService } from '@nestjs/config';
+import { StructuredLogger } from './modules/common/logger';
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
   const logger = new Logger('Bootstrap');
   const auditService = app.get(AuditService);
   const configService = app.get(ConfigService);
+  const structuredLogger = app.get(StructuredLogger);
   const isProd = configService.get<string>('NODE_ENV') === 'production';
-  const swaggerEnabled = configService.get<boolean>('SWAGGER_ENABLED', !isProd);
+  const useJsonLogger = configService.get<boolean>('LOG_JSON', false);
+  const swaggerEnabled =
+    configService.get<boolean>('SWAGGER_ENABLED', !isProd) && !useJsonLogger;
   const trustProxy = configService.get<boolean>('TRUST_PROXY', false);
   const frontendUrl =
     configService.get<string>('FRONTEND_URL') || 'http://localhost:4200';
 
   app.setGlobalPrefix('api');
+  if (useJsonLogger) {
+    app.useLogger(structuredLogger);
+  }
 
   if (trustProxy) {
     const server = app.getHttpAdapter().getInstance();

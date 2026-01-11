@@ -9,6 +9,7 @@ import {
   ForbiddenException,
   Logger,
   InternalServerErrorException,
+  Optional,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { EntityManager, Repository } from 'typeorm';
@@ -44,6 +45,7 @@ import {
 } from '../common/utils/otp-crypto.util';
 import { StructuredLogger, SecurityEventType } from '../common/logger';
 import { GoogleMapsService } from '../common/google-maps/google-maps.service';
+import { MetricsService } from '../common/metrics/metrics.service';
 
 type PickupDetails = {
   hasPickup: boolean;
@@ -75,6 +77,7 @@ export class BookingsService {
     private readonly configService: ConfigService,
     private readonly structuredLogger: StructuredLogger,
     private readonly googleMapsService: GoogleMapsService,
+    @Optional() private readonly metricsService?: MetricsService,
   ) {}
 
   /**
@@ -340,6 +343,7 @@ export class BookingsService {
 
     route.estado = EstadoRutaEnum.FINALIZADA;
     await this.routeRepository.save(route);
+    this.metricsService?.routesEventsTotal.labels('finalized_auto').inc();
 
     await this.auditService.logEvent({
       action: AuditAction.ROUTE_COMPLETED,
@@ -461,6 +465,7 @@ export class BookingsService {
     );
 
     this.logger.log(`Booking created: ${bookingId} for route ${dto.routeId}`);
+    this.metricsService?.bookingsEventsTotal.labels('created').inc();
 
     return {
       message: ErrorMessages.BOOKINGS.BOOKING_CREATED,
@@ -673,6 +678,7 @@ export class BookingsService {
     );
 
     this.logger.log(`Booking cancelled: ${booking.id}`);
+    this.metricsService?.bookingsEventsTotal.labels('cancelled').inc();
 
     return {
       message: eligibleForRefund
@@ -785,6 +791,7 @@ export class BookingsService {
     await this.finalizeRouteIfReady(booking.routeId, driverUserId, context);
 
     this.logger.log(`Booking completed: ${bookingId}`);
+    this.metricsService?.bookingsEventsTotal.labels('completed').inc();
 
     return {
       message: ErrorMessages.BOOKINGS.BOOKING_COMPLETED,
@@ -855,6 +862,7 @@ export class BookingsService {
     });
 
     this.logger.log(`Booking marked as no show: ${booking.id}`);
+    this.metricsService?.bookingsEventsTotal.labels('no_show').inc();
 
     return {
       message: ErrorMessages.BOOKINGS.BOOKING_NO_SHOW,
@@ -990,6 +998,7 @@ export class BookingsService {
     });
 
     this.logger.log(`OTP validated for booking: ${booking.id}`);
+    this.metricsService?.bookingsEventsTotal.labels('otp_verified').inc();
 
     return {
       message: ErrorMessages.TRIP_OTP.TRIP_STARTED,

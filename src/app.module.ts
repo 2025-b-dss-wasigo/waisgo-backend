@@ -6,7 +6,7 @@ import { Module } from '@nestjs/common';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { ScheduleModule } from '@nestjs/schedule';
-import { APP_GUARD } from '@nestjs/core';
+import { APP_GUARD, APP_INTERCEPTOR } from '@nestjs/core';
 import { ThrottlerGuard, ThrottlerModule } from '@nestjs/throttler';
 
 import { AuditModule } from './modules/audit/audit.module';
@@ -27,6 +27,7 @@ import { StorageModule } from './modules/storage/storage.module';
 import { VehicleModule } from './modules/vehicle/vehicle.module';
 import { AdminModule } from './modules/admin/admin.module';
 import { IdentityModule } from './modules/identity';
+import { MetricsInterceptor } from './modules/common/metrics/metrics.interceptor';
 
 @Module({
   imports: [
@@ -102,6 +103,10 @@ import { IdentityModule } from './modules/identity';
     {
       provide: APP_GUARD,
       useClass: ThrottlerGuard,
+    },
+    {
+      provide: APP_INTERCEPTOR,
+      useClass: MetricsInterceptor,
     },
   ],
 })

@@ -13,6 +13,7 @@ import { Driver } from '../drivers/Models/driver.entity';
 import { BusinessUser } from '../business/Models/business-user.entity';
 import { UserProfile } from '../business/Models/user-profile.entity';
 import { AuditModule } from '../audit/audit.module';
+import { CommonModule } from '../common/common.module';
 
 @Module({
   imports: [
@@ -25,6 +26,7 @@ import { AuditModule } from '../audit/audit.module';
       UserProfile,
     ]),
     AuditModule,
+    CommonModule,
   ],
   controllers: [RatingsController],
   providers: [RatingsService],

@@ -8,6 +8,7 @@ import {
   BadRequestException,
   ForbiddenException,
   ConflictException,
+  Optional,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
@@ -28,6 +29,7 @@ import type { AuthContext } from '../common/types';
 import { buildIdWhere, generatePublicId } from '../common/utils/public-id.util';
 import { IdempotencyService } from '../common/idempotency/idempotency.service';
 import { StructuredLogger, SecurityEventType } from '../common/logger';
+import { MetricsService } from '../common/metrics/metrics.service';
 
 type PaypalOrderResponse = {
   id?: string;
@@ -61,6 +63,7 @@ export class PaymentsService {
     private readonly paypalClient: PaypalClientService,
     private readonly idempotencyService: IdempotencyService,
     private readonly structuredLogger: StructuredLogger,
+    @Optional() private readonly metricsService?: MetricsService,
   ) {}
 
   private paypalRequest<T>(
@@ -148,6 +151,7 @@ export class PaymentsService {
     });
 
     const savedPayment = await this.paymentRepository.save(payment);
+    this.metricsService?.paymentsEventsTotal.labels('created').inc();
 
     await this.auditService.logEvent({
       action: AuditAction.PAYMENT_INITIATED,
@@ -411,6 +415,7 @@ export class PaymentsService {
       payment.status = EstadoPagoEnum.FAILED;
       payment.failureReason = 'Missing PayPal capture details';
       await this.paymentRepository.save(payment);
+      this.metricsService?.paymentsEventsTotal.labels('failed').inc();
       throw new BadRequestException(ErrorMessages.PAYMENTS.PAYMENT_FAILED);
     }
 
@@ -421,6 +426,7 @@ export class PaymentsService {
       payment.status = EstadoPagoEnum.FAILED;
       payment.failureReason = `Capture mismatch: ${captureAmount} ${captureCurrency}`;
       await this.paymentRepository.save(payment);
+      this.metricsService?.paymentsEventsTotal.labels('failed').inc();
       throw new BadRequestException(ErrorMessages.PAYMENTS.PAYMENT_FAILED);
     }
 
@@ -428,6 +434,7 @@ export class PaymentsService {
     payment.paidAt = new Date();
     payment.paypalCaptureId = captureId;
     await this.paymentRepository.save(payment);
+    this.metricsService?.paymentsEventsTotal.labels('paid').inc();
 
     await this.auditService.logEvent({
       action: AuditAction.PAYMENT_COMPLETED,
@@ -599,12 +606,14 @@ export class PaymentsService {
       payment.failureReason =
         error instanceof Error ? error.message : 'PayPal refund failed';
       await this.paymentRepository.save(payment);
+      this.metricsService?.paymentsEventsTotal.labels('failed').inc();
       throw new BadRequestException(ErrorMessages.PAYMENTS.PAYMENT_FAILED);
     }
 
     payment.status = EstadoPagoEnum.REVERSED;
     payment.reversedAt = new Date();
     await this.paymentRepository.save(payment);
+    this.metricsService?.paymentsEventsTotal.labels('reversed').inc();
 
     await this.auditService.logEvent({
       action: AuditAction.PAYMENT_REFUNDED,

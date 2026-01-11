@@ -29,6 +29,7 @@ export const envSchema = Joi.object({
 
   SWAGGER_ENABLED: Joi.boolean().optional(),
   SEED_ENABLED: Joi.boolean().optional(),
+  LOG_JSON: Joi.boolean().optional(),
 
   TRUST_PROXY: Joi.boolean().default(false),
 

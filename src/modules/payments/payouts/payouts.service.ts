@@ -6,6 +6,7 @@ import {
   Injectable,
   NotFoundException,
   BadRequestException,
+  Optional,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, DataSource, In } from 'typeorm';
@@ -27,6 +28,7 @@ import {
   generatePublicId,
 } from '../../common/utils/public-id.util';
 import { IdempotencyService } from '../../common/idempotency/idempotency.service';
+import { MetricsService } from '../../common/metrics/metrics.service';
 
 type PaypalPayoutResponse = {
   batch_header?: {
@@ -50,6 +52,7 @@ export class PayoutsService {
     private readonly auditService: AuditService,
     private readonly paypalClient: PaypalClientService,
     private readonly idempotencyService: IdempotencyService,
+    @Optional() private readonly metricsService?: MetricsService,
   ) {}
 
   async getDriverBalance(
@@ -257,6 +260,7 @@ export class PayoutsService {
       userAgent: context?.userAgent,
       metadata: { amount: total },
     });
+    this.metricsService?.payoutsEventsTotal.labels('requested').inc();
 
     const response = {
       message: ErrorMessages.PAYOUTS.PAYOUT_REQUESTED,
@@ -522,6 +526,9 @@ export class PayoutsService {
       }
 
       await this.payoutRepository.save(payout);
+      if (payout.status === EstadoPayoutEnum.PAID) {
+        this.metricsService?.payoutsEventsTotal.labels('paid').inc();
+      }
 
       if (adminUserId) {
         await this.auditService.logEvent({
@@ -558,6 +565,7 @@ export class PayoutsService {
       payout.lastError =
         error instanceof Error ? error.message : 'PayPal payout failed';
       await this.payoutRepository.save(payout);
+      this.metricsService?.payoutsEventsTotal.labels('failed').inc();
 
       if (adminUserId) {
         await this.auditService.logEvent({
@@ -608,6 +616,7 @@ export class PayoutsService {
     payout.lastError = reason?.trim() || 'Marked as failed by admin';
     payout.attempts += 1;
     await this.payoutRepository.save(payout);
+    this.metricsService?.payoutsEventsTotal.labels('failed').inc();
 
     if (adminUserId) {
       await this.auditService.logEvent({

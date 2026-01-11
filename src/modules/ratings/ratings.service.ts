@@ -8,6 +8,7 @@ import {
   BadRequestException,
   ForbiddenException,
   Logger,
+  Optional,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, In, FindOptionsWhere } from 'typeorm';
@@ -31,6 +32,7 @@ import {
   isUuid,
   isValidIdentifier,
 } from '../common/utils/public-id.util';
+import { MetricsService } from '../common/metrics/metrics.service';
 
 @Injectable()
 export class RatingsService {
@@ -51,6 +53,7 @@ export class RatingsService {
     @InjectRepository(UserProfile)
     private readonly profileRepository: Repository<UserProfile>,
     private readonly auditService: AuditService,
+    @Optional() private readonly metricsService?: MetricsService,
   ) {}
 
   private isRatingWindowExpired(referenceDate: Date): boolean {
@@ -204,6 +207,7 @@ export class RatingsService {
     });
 
     const savedRating = await this.ratingRepository.save(rating);
+    this.metricsService?.ratingsEventsTotal.labels('created').inc();
 
     await this.updateUserRating(toUser.id, context);
 
