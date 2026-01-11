@@ -54,6 +54,11 @@ type PickupDetails = {
   pickupDireccion?: string;
 };
 
+type BookingWithPayment = Booking & {
+  paymentId?: string | null;
+  paymentStatus?: EstadoPagoEnum | null;
+};
+
 @Injectable()
 export class BookingsService {
   private readonly logger = new Logger(BookingsService.name);
@@ -480,16 +485,19 @@ export class BookingsService {
   async getMyBookings(
     passengerId: string,
     estado?: string,
-  ): Promise<{ message: string; data?: Booking[] }> {
+  ): Promise<{ message: string; data?: BookingWithPayment[] }> {
     const query = this.bookingRepository
       .createQueryBuilder('booking')
       .leftJoinAndSelect('booking.route', 'route')
       .leftJoinAndSelect('route.driver', 'driver')
       .leftJoinAndSelect('driver.user', 'driverUser')
       .leftJoinAndSelect('driverUser.profile', 'driverProfile')
+      .leftJoin(Payment, 'payment', 'payment.bookingId = booking.id')
       .where('booking.passengerId = :passengerId', { passengerId })
       .orderBy('booking.createdAt', 'DESC');
     query.addSelect('booking.otp');
+    query.addSelect('payment.publicId', 'payment_publicId');
+    query.addSelect('payment.status', 'payment_status');
 
     if (estado) {
       if (
@@ -502,12 +510,23 @@ export class BookingsService {
       query.andWhere('booking.estado = :estado', { estado });
     }
 
-    const bookings = await query.getMany();
-    bookings.forEach((booking) => this.normalizeOtpForResponse(booking));
+    const { entities, raw } = await query.getRawAndEntities();
+    const mapped = entities.map((booking, index) => {
+      const row = raw[index] ?? {};
+      const paymentId =
+        typeof row.payment_publicId === 'string' ? row.payment_publicId : null;
+      const paymentStatus = row.payment_status ?? null;
+      const enriched = booking as BookingWithPayment;
+      enriched.paymentId = paymentId;
+      enriched.paymentStatus = paymentStatus;
+      return enriched;
+    });
+
+    mapped.forEach((booking) => this.normalizeOtpForResponse(booking));
 
     return {
       message: ErrorMessages.BOOKINGS.BOOKINGS_LIST,
-      data: bookings,
+      data: mapped,
     };
   }
 
@@ -517,7 +536,7 @@ export class BookingsService {
   async getBookingById(
     passengerId: string,
     bookingId: string,
-  ): Promise<{ message: string; data?: Booking }> {
+  ): Promise<{ message: string; data?: BookingWithPayment }> {
     const query = this.bookingRepository
       .createQueryBuilder('booking')
       .leftJoinAndSelect('booking.route', 'route')
@@ -525,7 +544,10 @@ export class BookingsService {
       .leftJoinAndSelect('route.driver', 'driver')
       .leftJoinAndSelect('driver.user', 'driverUser')
       .leftJoinAndSelect('driverUser.profile', 'driverProfile')
+      .leftJoin(Payment, 'payment', 'payment.bookingId = booking.id')
       .addSelect('booking.otp');
+    query.addSelect('payment.publicId', 'payment_publicId');
+    query.addSelect('payment.status', 'payment_status');
 
     // Use UUID lookup only when identifier is a valid UUID to avoid type mismatch
     if (isUuid(bookingId)) {
@@ -536,13 +558,21 @@ export class BookingsService {
       query.where('booking.publicId = :bookingId', { bookingId });
     }
 
-    const booking = await query.getOne();
+    const { entities, raw } = await query.getRawAndEntities();
+    const booking = entities[0];
 
     if (booking?.passengerId !== passengerId) {
       throw new NotFoundException(ErrorMessages.BOOKINGS.BOOKING_NOT_FOUND);
     }
 
     if (booking) {
+      const row = raw[0] ?? {};
+      const paymentId =
+        typeof row.payment_publicId === 'string' ? row.payment_publicId : null;
+      const paymentStatus = row.payment_status ?? null;
+      const enriched = booking as BookingWithPayment;
+      enriched.paymentId = paymentId;
+      enriched.paymentStatus = paymentStatus;
       this.normalizeOtpForResponse(booking);
     }
 

@@ -525,10 +525,11 @@ describe('BookingsService', () => {
     const query = {
       leftJoinAndSelect: jest.fn().mockReturnThis(),
       addSelect: jest.fn().mockReturnThis(),
+      leftJoin: jest.fn().mockReturnThis(),
       where: jest.fn().mockReturnThis(),
       orderBy: jest.fn().mockReturnThis(),
       andWhere: jest.fn().mockReturnThis(),
-      getMany: jest.fn(),
+      getRawAndEntities: jest.fn(),
     };
     bookingRepository.createQueryBuilder.mockReturnValue(query);
 
@@ -545,17 +546,21 @@ describe('BookingsService', () => {
     const query = {
       leftJoinAndSelect: jest.fn().mockReturnThis(),
       addSelect: jest.fn().mockReturnThis(),
+      leftJoin: jest.fn().mockReturnThis(),
       where: jest.fn().mockReturnThis(),
       orderBy: jest.fn().mockReturnThis(),
       andWhere: jest.fn().mockReturnThis(),
-      getMany: jest.fn().mockResolvedValue([
-        {
-          id: 'booking-id',
-          estado: EstadoReservaEnum.COMPLETADA,
-          otp: '123456',
-          route: { fecha: '2025-01-01', horaSalida: '10:00' },
-        } as Booking,
-      ]),
+      getRawAndEntities: jest.fn().mockResolvedValue({
+        entities: [
+          {
+            id: 'booking-id',
+            estado: EstadoReservaEnum.COMPLETADA,
+            otp: '123456',
+            route: { fecha: '2025-01-01', horaSalida: '10:00' },
+          } as Booking,
+        ],
+        raw: [{ payment_publicId: null, payment_status: null }],
+      }),
     };
 
     bookingRepository.createQueryBuilder.mockReturnValue(query);
