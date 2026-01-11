@@ -104,7 +104,10 @@ describeFlow('Bookings cancel + no-show flows (e2e)', () => {
         destinoBase: 'Destino',
         asientosTotales: 2,
         precioPasajero: 2.5,
-        stops: [{ lat: -0.18, lng: -78.48, direccion: 'Parada 1' }],
+        stops: [
+          { lat: -0.18, lng: -78.48, direccion: 'Parada 1' },
+          { lat: -0.19, lng: -78.49, direccion: 'Parada 2' },
+        ],
       })
       .expect(201);
 
@@ -135,7 +138,7 @@ describeFlow('Bookings cancel + no-show flows (e2e)', () => {
       .set('Authorization', `Bearer ${passengerToken}`)
       .expect(200);
 
-    expect(routeMapRes.body?.data?.stops?.length).toBe(2);
+    expect(routeMapRes.body?.data?.stops?.length).toBe(3);
 
     const bookingRes = await request(ctx.app.getHttpServer())
       .post('/api/bookings')
@@ -158,7 +161,7 @@ describeFlow('Bookings cancel + no-show flows (e2e)', () => {
       .set('Authorization', `Bearer ${passengerToken}`)
       .expect(200);
 
-    expect(bookingMap.body?.data?.stops?.length).toBe(2);
+    expect(bookingMap.body?.data?.stops?.length).toBe(3);
 
     const myBookings = await request(ctx.app.getHttpServer())
       .get('/api/bookings/my')
@@ -211,12 +214,15 @@ describeFlow('Bookings cancel + no-show flows (e2e)', () => {
       .set('Authorization', `Bearer ${driverToken}`)
       .send({
         origen: CampusOrigenEnum.CAMPUS_PRINCIPAL,
-        fecha: '2000-01-01',
-        horaSalida: '00:00',
+        fecha: '2099-01-03',
+        horaSalida: '08:30',
         destinoBase: 'Destino',
         asientosTotales: 1,
         precioPasajero: 2.5,
-        stops: [{ lat: -0.19, lng: -78.5, direccion: 'Parada X' }],
+        stops: [
+          { lat: -0.19, lng: -78.5, direccion: 'Parada X' },
+          { lat: -0.2, lng: -78.51, direccion: 'Parada Y' },
+        ],
       })
       .expect(201);
 
@@ -229,6 +235,11 @@ describeFlow('Bookings cancel + no-show flows (e2e)', () => {
       .expect(201);
 
     const pastBookingId = pastBookingRes.body?.data?.bookingId as string;
+
+    await routeRepo.update(
+      { publicId: pastRouteId },
+      { fecha: '2000-01-01', horaSalida: '00:00' },
+    );
 
     await request(ctx.app.getHttpServer())
       .patch(`/api/bookings/${pastBookingId}/no-show`)
@@ -255,7 +266,10 @@ describeFlow('Bookings cancel + no-show flows (e2e)', () => {
         destinoBase: 'Destino',
         asientosTotales: 1,
         precioPasajero: 2.5,
-        stops: [{ lat: -0.2, lng: -78.51, direccion: 'Parada Z' }],
+        stops: [
+          { lat: -0.2, lng: -78.51, direccion: 'Parada Z' },
+          { lat: -0.21, lng: -78.52, direccion: 'Parada W' },
+        ],
       })
       .expect(201);
 

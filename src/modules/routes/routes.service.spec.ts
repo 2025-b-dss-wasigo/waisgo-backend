@@ -53,6 +53,9 @@ describe('RoutesService', () => {
   const auditService = {
     logEvent: jest.fn(),
   };
+  const googleMapsService = {
+    buildRoutePolyline: jest.fn(),
+  };
 
   const context: AuthContext = { ip: '127.0.0.1', userAgent: 'jest' };
 
@@ -71,6 +74,7 @@ describe('RoutesService', () => {
       paymentRepository as never,
       paymentsService as never,
       auditService as never,
+      googleMapsService as never,
     );
   });
 
@@ -128,12 +132,15 @@ describe('RoutesService', () => {
         'user-id',
         {
           origen: CampusOrigenEnum.CAMPUS_PRINCIPAL,
-          fecha: '2025-01-01',
+          fecha: '2099-01-01',
           horaSalida: '10:00',
           destinoBase: 'Destino',
           asientosTotales: 2,
           precioPasajero: 1,
-          stops: [{ lat: 0, lng: 0, direccion: 'A' }],
+          stops: [
+            { lat: 0, lng: 0, direccion: 'A' },
+            { lat: 1, lng: 1, direccion: 'B' },
+          ],
         },
         context,
       ),
@@ -153,6 +160,7 @@ describe('RoutesService', () => {
       id: 'vehicle-id',
       asientosDisponibles: 4,
     });
+    googleMapsService.buildRoutePolyline.mockResolvedValue('polyline');
 
     routeStopRepository.create.mockImplementation((input) => ({ ...input }));
     routeRepository.create.mockImplementation((input) => ({ ...input }));
@@ -170,12 +178,15 @@ describe('RoutesService', () => {
       'user-id',
       {
         origen: CampusOrigenEnum.CAMPUS_PRINCIPAL,
-        fecha: '2025-01-01',
+        fecha: '2099-01-01',
         horaSalida: '10:00',
         destinoBase: 'Destino',
         asientosTotales: 2,
         precioPasajero: 1,
-        stops: [{ lat: 0, lng: 0, direccion: 'A' }],
+        stops: [
+          { lat: 0, lng: 0, direccion: 'A' },
+          { lat: 1, lng: 1, direccion: 'B' },
+        ],
       },
       context,
     );
@@ -199,12 +210,15 @@ describe('RoutesService', () => {
         'user-id',
         {
           origen: CampusOrigenEnum.CAMPUS_PRINCIPAL,
-          fecha: '2025-01-01',
+          fecha: '2099-01-01',
           horaSalida: '10:00',
           destinoBase: 'Destino',
           asientosTotales: 2,
           precioPasajero: 1,
-          stops: [{ lat: 0, lng: 0, direccion: 'A' }],
+          stops: [
+            { lat: 0, lng: 0, direccion: 'A' },
+            { lat: 1, lng: 1, direccion: 'B' },
+          ],
         },
         context,
       ),
@@ -238,6 +252,7 @@ describe('RoutesService', () => {
     expect(result).toEqual({
       message: ErrorMessages.ROUTES.ROUTE_MAP,
       stops: [{ id: 'stop-1', orden: 1 }],
+      polyline: null,
     });
   });
 

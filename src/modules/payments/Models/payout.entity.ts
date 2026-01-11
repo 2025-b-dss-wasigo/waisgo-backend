@@ -11,13 +11,11 @@ import {
   ManyToOne,
   JoinColumn,
   Index,
-  Unique,
 } from 'typeorm';
 import { Driver } from '../../drivers/Models/driver.entity';
 import { EstadoPayoutEnum } from '../Enums';
 
 @Entity({ schema: 'business', name: 'payouts' })
-@Unique('UQ_payouts_driver_period', ['driverId', 'period'])
 @Index('IDX_payouts_status', ['status'])
 @Index('IDX_payouts_created_at', ['createdAt'])
 export class Payout {

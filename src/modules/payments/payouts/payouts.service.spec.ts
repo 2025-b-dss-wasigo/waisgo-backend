@@ -19,6 +19,9 @@ describe('PayoutsService', () => {
   const paymentRepository = {
     createQueryBuilder: jest.fn(),
   };
+  const bookingRepository = {
+    createQueryBuilder: jest.fn(),
+  };
   const driverRepository = {
     findOne: jest.fn(),
   };
@@ -56,6 +59,7 @@ describe('PayoutsService', () => {
     service = new PayoutsService(
       payoutRepository as never,
       paymentRepository as never,
+      bookingRepository as never,
       driverRepository as never,
       dataSource as never,
       auditService as never,

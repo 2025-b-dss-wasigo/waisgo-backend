@@ -37,6 +37,9 @@ export const envSchema = Joi.object({
   PAYPAL_MODE: Joi.string().valid('sandbox', 'live').default('sandbox'),
   PAYPAL_BASE_URL: Joi.string().uri().required(),
 
+  GOOGLE_MAPS_API_KEY: Joi.string().required(),
+  GOOGLE_MAPS_BASE_URL: Joi.string().uri().optional(),
+
   REDIS_HOST: Joi.string().hostname().required(),
   REDIS_PORT: Joi.number().port().default(6379),
   REDIS_PASSWORD: Joi.string().required(),

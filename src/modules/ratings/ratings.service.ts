@@ -254,6 +254,81 @@ export class RatingsService {
     };
   }
 
+  async getDriverRatingCandidates(
+    driverUserId: string,
+    routeId: string,
+  ): Promise<{
+    message: string;
+    data?: Array<{
+      userId: string;
+      alias?: string | null;
+      nombre?: string | null;
+      apellido?: string | null;
+      estado: EstadoReservaEnum;
+      rated: boolean;
+    }>;
+  }> {
+    const route = await this.routeRepository.findOne({
+      where: buildIdWhere<Route>(routeId),
+    });
+
+    if (!route) {
+      throw new NotFoundException(ErrorMessages.ROUTES.ROUTE_NOT_FOUND);
+    }
+
+    if (route.estado !== EstadoRutaEnum.FINALIZADA) {
+      throw new BadRequestException(ErrorMessages.RATINGS.ROUTE_NOT_COMPLETED);
+    }
+
+    if (this.isRatingWindowExpired(route.updatedAt)) {
+      throw new BadRequestException(
+        ErrorMessages.RATINGS.RATING_WINDOW_EXPIRED,
+      );
+    }
+
+    const driver = await this.driverRepository.findOne({
+      where: { businessUserId: driverUserId },
+    });
+
+    if (!driver || driver.id !== route.driverId) {
+      throw new ForbiddenException(ErrorMessages.RATINGS.NOT_PARTICIPANT);
+    }
+
+    const bookings = await this.bookingRepository.find({
+      where: {
+        routeId: route.id,
+        estado: In([EstadoReservaEnum.COMPLETADA, EstadoReservaEnum.NO_SHOW]),
+      },
+      relations: ['passenger', 'passenger.profile'],
+      order: { createdAt: 'ASC' },
+    });
+
+    if (bookings.length === 0) {
+      return { message: ErrorMessages.RATINGS.RATING_CANDIDATES, data: [] };
+    }
+
+    const rated = await this.ratingRepository.find({
+      where: {
+        fromUserId: driverUserId,
+        routeId: route.id,
+      },
+    });
+    const ratedSet = new Set(rated.map((item) => item.toUserId));
+
+    const data = bookings
+      .filter((booking) => Boolean(booking.passenger))
+      .map((booking) => ({
+        userId: booking.passenger.publicId,
+        alias: booking.passenger.alias,
+        nombre: booking.passenger.profile?.nombre ?? null,
+        apellido: booking.passenger.profile?.apellido ?? null,
+        estado: booking.estado,
+        rated: ratedSet.has(booking.passengerId),
+      }));
+
+    return { message: ErrorMessages.RATINGS.RATING_CANDIDATES, data };
+  }
+
   async getRatingsGiven(
     userId: string,
     page?: number,

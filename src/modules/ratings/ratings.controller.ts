@@ -140,6 +140,28 @@ export class RatingsController {
     return this.ratingsService.canRateRoute(user.sub, safeRouteId);
   }
 
+  /**
+   * Obtener pasajeros para calificar (conductor)
+   */
+  @Roles(RolUsuarioEnum.CONDUCTOR)
+  @Get('candidates/:routeId')
+  @ApiOperation({ summary: 'Obtener pasajeros para calificar' })
+  @ApiParam({ name: 'routeId', description: 'ID de la ruta' })
+  @ApiResponse({
+    status: 200,
+    description: 'Listado de pasajeros para calificar.',
+  })
+  async getRatingCandidates(
+    @User() user: JwtPayload,
+    @Param('routeId') routeId: string,
+  ) {
+    const safeRouteId = validateIdentifier(routeId, 'routeId');
+    return this.ratingsService.getDriverRatingCandidates(
+      user.sub,
+      safeRouteId,
+    );
+  }
+
   /* ========== ADMIN ========== */
 
   /**

@@ -98,7 +98,10 @@ describeFlow('Routes + Bookings + OTP + Ratings (e2e)', () => {
         destinoBase: 'Destino',
         asientosTotales: 2,
         precioPasajero: 2.5,
-        stops: [{ lat: -0.18, lng: -78.48, direccion: 'Parada 1' }],
+        stops: [
+          { lat: -0.18, lng: -78.48, direccion: 'Parada 1' },
+          { lat: -0.19, lng: -78.49, direccion: 'Parada 2' },
+        ],
       })
       .expect(201);
 

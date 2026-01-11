@@ -28,7 +28,7 @@ import {
 import { RolUsuarioEnum } from 'src/modules/auth/Enum';
 import { Roles, User } from 'src/modules/common/Decorators';
 import { PayoutsService } from './payouts.service';
-import { GeneratePayoutsDto } from './Dto';
+import { GeneratePayoutsDto, RequestPayoutDto } from './Dto';
 import type { JwtPayload } from 'src/modules/common/types';
 import {
   buildAuthContext,
@@ -53,6 +53,44 @@ export class PayoutsController {
   }
 
   /* ========== CONDUCTOR ========== */
+
+  /**
+   * Obtener balance del conductor
+   */
+  @Roles(RolUsuarioEnum.CONDUCTOR)
+  @Get('balance')
+  @ApiOperation({ summary: 'Obtener balance disponible del conductor' })
+  @ApiResponse({ status: 200, description: 'Balance del conductor.' })
+  async getDriverBalance(@User() user: JwtPayload) {
+    return this.payoutsService.getDriverBalance(user.sub);
+  }
+
+  /**
+   * Solicitar retiro
+   */
+  @Roles(RolUsuarioEnum.CONDUCTOR)
+  @Post('request')
+  @HttpCode(HttpStatus.CREATED)
+  @Throttle({ default: { limit: 5, ttl: 600000 } })
+  @ApiOperation({ summary: 'Solicitar retiro de saldo disponible' })
+  @ApiHeader({
+    name: 'Idempotency-Key',
+    required: false,
+    description: 'Clave idempotente para evitar retiros duplicados',
+  })
+  @ApiResponse({ status: 201, description: 'Retiro solicitado.' })
+  async requestPayout(
+    @User() user: JwtPayload,
+    @Body() dto: RequestPayoutDto,
+    @Req() req: Request,
+  ) {
+    return this.payoutsService.requestPayout(
+      user.sub,
+      dto.amount,
+      buildAuthContext(req),
+      this.getIdempotencyKey(req),
+    );
+  }
 
   /**
    * Obtener historial de payouts del conductor

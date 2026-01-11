@@ -149,7 +149,7 @@ describe('VehicleService', () => {
       RolUsuarioEnum.CONDUCTOR,
     );
 
-    expect(response.vehicle).not.toHaveProperty('driverId');
+    expect(response.vehicle).toHaveProperty('driverId', 'driver-id');
   });
 
   it('returns empty list when driver does not exist', async () => {

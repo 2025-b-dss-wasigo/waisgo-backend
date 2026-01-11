@@ -36,11 +36,13 @@ describe('BookingsService', () => {
   const routeRepository = {
     findOne: jest.fn(),
     save: jest.fn(),
+    update: jest.fn(),
   };
   const routeStopRepository = {
     find: jest.fn(),
     save: jest.fn(),
     create: jest.fn(),
+    delete: jest.fn(),
   };
   const driverRepository = {
     findOne: jest.fn(),
@@ -66,6 +68,9 @@ describe('BookingsService', () => {
     logFailure: jest.fn(),
     logDenied: jest.fn(),
     logCritical: jest.fn(),
+  };
+  const googleMapsService = {
+    buildRoutePolyline: jest.fn(),
   };
 
   const context: AuthContext = { ip: '127.0.0.1', userAgent: 'jest' };
@@ -94,6 +99,7 @@ describe('BookingsService', () => {
       auditService as never,
       configService as never,
       structuredLogger as never,
+      googleMapsService as never,
     );
   });
 

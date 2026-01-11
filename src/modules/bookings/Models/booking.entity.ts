@@ -14,6 +14,7 @@ import {
   Unique,
 } from 'typeorm';
 import { Route } from '../../routes/Models/route.entity';
+import { RouteStop } from '../../routes/Models/route-stop.entity';
 import { BusinessUser } from '../../business/Models/business-user.entity';
 import { EstadoReservaEnum } from '../Enums';
 import { MetodoPagoEnum } from '../../payments/Enums';
@@ -45,6 +46,13 @@ export class Booking {
   @ManyToOne(() => BusinessUser, { onDelete: 'CASCADE' })
   @JoinColumn({ name: 'passengerId' })
   passenger: BusinessUser;
+
+  @Column({ type: 'uuid', nullable: true })
+  pickupStopId: string | null;
+
+  @ManyToOne(() => RouteStop, { onDelete: 'SET NULL' })
+  @JoinColumn({ name: 'pickupStopId' })
+  pickupStop: RouteStop | null;
 
   @Column({
     type: 'enum',

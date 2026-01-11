@@ -14,6 +14,7 @@ const RELATION_KEY_MAP: Record<string, string> = {
   vehicleId: 'vehicle',
   documentId: 'document',
   stopId: 'stop',
+  pickupStopId: 'pickupStop',
   userId: 'user',
   fromUserId: 'fromUser',
   toUserId: 'toUser',

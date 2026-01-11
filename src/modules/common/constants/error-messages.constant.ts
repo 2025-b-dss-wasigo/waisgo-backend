@@ -141,6 +141,20 @@ export const ErrorMessages = {
     ROUTE_NOT_ACTIVE: 'La ruta no esta activa',
     ROUTE_NOT_FINISHED: 'La ruta aun no ha finalizado',
     ROUTE_PRICE_REQUIRED: 'La ruta no tiene precio configurado',
+    ROUTE_POLYLINE_FAILED: 'No se pudo calcular la ruta con Google Maps',
+    ROUTE_MAPS_NOT_CONFIGURED: 'Google Maps no esta configurado',
+    ROUTE_INVALID_DEPARTURE: 'La fecha u hora de salida no es valida',
+    ROUTE_DEPARTURE_TOO_SOON:
+      'La ruta debe programarse con al menos 15 minutos de anticipacion',
+    ROUTE_STOPS_REQUIRED:
+      'La ruta debe tener al menos un punto de origen y destino',
+    ROUTE_SCHEDULE_REQUIRED:
+      'Debes enviar fecha u hora de salida para actualizar la ruta',
+    ROUTE_SCHEDULE_UPDATED: 'Horario de la ruta actualizado correctamente',
+    ROUTE_STARTED: 'Ruta iniciada correctamente',
+    ROUTE_ALREADY_STARTED: 'La ruta ya fue iniciada',
+    ROUTE_START_PENDING_PASSENGERS:
+      'Hay pasajeros pendientes de validar o marcar como no show',
     NO_ACTIVE_VEHICLE: 'Debes tener un vehiculo activo para crear rutas',
     ONLY_DRIVERS_CAN_CREATE: 'Solo conductores pueden crear rutas',
     DRIVER_BLOCKED_LOW_RATING:
@@ -221,6 +235,12 @@ export const ErrorMessages = {
     PAYOUT_NOT_FOUND: 'Payout no encontrado',
     PAYOUT_NOT_PENDING: 'El payout no esta en estado pendiente',
     INVALID_PERIOD: 'El periodo debe estar en formato YYYY-MM',
+    PAYOUT_BALANCE: 'Balance disponible del conductor',
+    PAYOUT_REQUESTED: 'Retiro solicitado correctamente',
+    PAYOUT_AMOUNT_TOO_LOW: 'El monto minimo de retiro es 5 USD',
+    PAYOUT_AMOUNT_INVALID: 'El monto solicitado no es valido',
+    PAYOUT_AMOUNT_NOT_AVAILABLE:
+      'El monto solicitado no coincide con pagos disponibles',
   },
 
   // ============ RATINGS (RN-027, RN-028, RN-029) ============
@@ -236,6 +256,7 @@ export const ErrorMessages = {
       'El período para calificar ha expirado (máximo 24 horas)',
     ALREADY_RATED: 'Ya calificaste este viaje',
     RATING_SUCCESS: 'Calificación registrada',
+    RATING_CANDIDATES: 'Listado de pasajeros para calificar',
     INVALID_RATING: 'La calificación debe ser entre 1 y 5 estrellas',
   },
 

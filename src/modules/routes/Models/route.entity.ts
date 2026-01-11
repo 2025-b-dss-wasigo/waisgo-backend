@@ -70,6 +70,9 @@ export class Route {
   @Column({ type: 'text', nullable: true })
   mensaje: string | null;
 
+  @Column({ type: 'text', nullable: true })
+  polyline: string | null;
+
   @OneToMany(() => RouteStop, (stop) => stop.route, { cascade: true })
   stops: RouteStop[];
 
@@ -78,4 +81,7 @@ export class Route {
 
   @UpdateDateColumn()
   updatedAt: Date;
+
+  @Column({ type: 'timestamp', nullable: true })
+  startedAt: Date | null;
 }

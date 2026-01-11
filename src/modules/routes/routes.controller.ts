@@ -26,7 +26,12 @@ import {
 import { Roles, User } from '../common/Decorators';
 import { RolUsuarioEnum } from '../auth/Enum';
 import { RoutesService } from './routes.service';
-import { CreateRouteDto, SearchRoutesDto, AddStopDto } from './Dto';
+import {
+  CreateRouteDto,
+  SearchRoutesDto,
+  AddStopDto,
+  UpdateRouteScheduleDto,
+} from './Dto';
 import type { JwtPayload } from '../common/types';
 import {
   buildAuthContext,
@@ -167,6 +172,24 @@ export class RoutesController {
     );
   }
 
+  /**
+   * Actualizar fecha u hora de salida de una ruta
+   */
+  @Roles(RolUsuarioEnum.CONDUCTOR)
+  @Patch(':id/schedule')
+  @ApiOperation({ summary: 'Actualizar fecha u hora de salida de la ruta' })
+  @ApiParam({ name: 'id', description: 'ID de la ruta' })
+  @ApiResponse({ status: 200, description: 'Horario actualizado.' })
+  @ApiResponse({ status: 400, description: 'Horario invalido.' })
+  async updateRouteSchedule(
+    @User() user: JwtPayload,
+    @Param('id') id: string,
+    @Body() dto: UpdateRouteScheduleDto,
+  ) {
+    const safeId = validateIdentifier(id);
+    return this.routesService.updateRouteSchedule(user.sub, safeId, dto);
+  }
+
   /* ================= CONDUCTOR - GESTIÓN ================= */
 
   /**
@@ -210,6 +233,27 @@ export class RoutesController {
   ) {
     const safeId = validateIdentifier(id);
     return this.routesService.finalizeRoute(
+      user.sub,
+      safeId,
+      buildAuthContext(req),
+    );
+  }
+
+  /**
+   * Iniciar una ruta
+   */
+  @Roles(RolUsuarioEnum.CONDUCTOR)
+  @Patch(':id/start')
+  @ApiOperation({ summary: 'Iniciar una ruta' })
+  @ApiParam({ name: 'id', description: 'ID de la ruta' })
+  @ApiResponse({ status: 200, description: 'Ruta iniciada.' })
+  async startRoute(
+    @User() user: JwtPayload,
+    @Param('id') id: string,
+    @Req() req: Request,
+  ) {
+    const safeId = validateIdentifier(id);
+    return this.routesService.startRoute(
       user.sub,
       safeId,
       buildAuthContext(req),

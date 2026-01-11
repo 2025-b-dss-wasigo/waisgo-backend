@@ -15,6 +15,9 @@ import { Payment } from '../Models/payment.entity';
 import { PaypalClientService } from '../paypal-client.service';
 import { Driver } from '../../drivers/Models/driver.entity';
 import { EstadoPayoutEnum, EstadoPagoEnum } from '../Enums';
+import { EstadoConductorEnum } from '../../drivers/Enums/estado-conductor.enum';
+import { Booking } from '../../bookings/Models/booking.entity';
+import { EstadoReservaEnum } from '../../bookings/Enums';
 import { AuditService } from '../../audit/audit.service';
 import { AuditAction, AuditResult } from '../../audit/Enums';
 import { ErrorMessages } from '../../common/constants/error-messages.constant';
@@ -39,6 +42,8 @@ export class PayoutsService {
     private readonly payoutRepository: Repository<Payout>,
     @InjectRepository(Payment)
     private readonly paymentRepository: Repository<Payment>,
+    @InjectRepository(Booking)
+    private readonly bookingRepository: Repository<Booking>,
     @InjectRepository(Driver)
     private readonly driverRepository: Repository<Driver>,
     private readonly dataSource: DataSource,
@@ -46,6 +51,230 @@ export class PayoutsService {
     private readonly paypalClient: PaypalClientService,
     private readonly idempotencyService: IdempotencyService,
   ) {}
+
+  async getDriverBalance(
+    businessUserId: string,
+  ): Promise<{
+    message: string;
+    data?: {
+      availableForWithdrawal: number;
+      monthlyEarnings: number;
+      pendingCollection: number;
+      completedTrips: number;
+    };
+  }> {
+    const driver = await this.driverRepository.findOne({
+      where: { businessUserId },
+    });
+
+    if (!driver) {
+      throw new NotFoundException(ErrorMessages.DRIVER.NOT_A_DRIVER);
+    }
+
+    if (driver.estado !== EstadoConductorEnum.APROBADO) {
+      throw new BadRequestException(ErrorMessages.DRIVER.DRIVER_NOT_APPROVED);
+    }
+
+    const now = new Date();
+    const monthStart = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1));
+    const monthEnd = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth() + 1, 1));
+
+    const availableRaw = await this.paymentRepository
+      .createQueryBuilder('payment')
+      .leftJoin('payment.booking', 'booking')
+      .leftJoin('booking.route', 'route')
+      .select('COALESCE(SUM(payment.amount), 0)', 'total')
+      .where('route.driverId = :driverId', { driverId: driver.id })
+      .andWhere('payment.status = :status', { status: EstadoPagoEnum.PAID })
+      .andWhere('payment.payoutId IS NULL')
+      .getRawOne<{ total: string }>();
+
+    const monthlyRaw = await this.paymentRepository
+      .createQueryBuilder('payment')
+      .leftJoin('payment.booking', 'booking')
+      .leftJoin('booking.route', 'route')
+      .select('COALESCE(SUM(payment.amount), 0)', 'total')
+      .where('route.driverId = :driverId', { driverId: driver.id })
+      .andWhere('payment.status = :status', { status: EstadoPagoEnum.PAID })
+      .andWhere('payment.paidAt >= :start AND payment.paidAt < :end', {
+        start: monthStart,
+        end: monthEnd,
+      })
+      .getRawOne<{ total: string }>();
+
+    const pendingRaw = await this.paymentRepository
+      .createQueryBuilder('payment')
+      .leftJoin('payment.booking', 'booking')
+      .leftJoin('booking.route', 'route')
+      .select('COALESCE(SUM(payment.amount), 0)', 'total')
+      .where('route.driverId = :driverId', { driverId: driver.id })
+      .andWhere('payment.status = :status', { status: EstadoPagoEnum.PENDING })
+      .getRawOne<{ total: string }>();
+
+    const completedTrips = await this.bookingRepository
+      .createQueryBuilder('booking')
+      .leftJoin('booking.route', 'route')
+      .where('route.driverId = :driverId', { driverId: driver.id })
+      .andWhere('booking.estado = :estado', {
+        estado: EstadoReservaEnum.COMPLETADA,
+      })
+      .andWhere('booking.updatedAt >= :start AND booking.updatedAt < :end', {
+        start: monthStart,
+        end: monthEnd,
+      })
+      .getCount();
+
+    return {
+      message: ErrorMessages.PAYOUTS.PAYOUT_BALANCE,
+      data: {
+        availableForWithdrawal: Number(availableRaw?.total ?? 0),
+        monthlyEarnings: Number(monthlyRaw?.total ?? 0),
+        pendingCollection: Number(pendingRaw?.total ?? 0),
+        completedTrips,
+      },
+    };
+  }
+
+  async requestPayout(
+    businessUserId: string,
+    amount: number,
+    context?: AuthContext,
+    idempotencyKey?: string | null,
+  ): Promise<{ message: string; payoutId?: string; amount?: number }> {
+    const driver = await this.driverRepository.findOne({
+      where: { businessUserId },
+    });
+
+    if (!driver) {
+      throw new NotFoundException(ErrorMessages.DRIVER.NOT_A_DRIVER);
+    }
+
+    if (driver.estado !== EstadoConductorEnum.APROBADO) {
+      throw new BadRequestException(ErrorMessages.DRIVER.DRIVER_NOT_APPROVED);
+    }
+
+    const sanitizedAmount = Number(amount ?? 0);
+    if (Number.isNaN(sanitizedAmount) || sanitizedAmount <= 0) {
+      throw new BadRequestException(
+        ErrorMessages.PAYOUTS.PAYOUT_AMOUNT_INVALID,
+      );
+    }
+
+    if (sanitizedAmount < 5) {
+      throw new BadRequestException(
+        ErrorMessages.PAYOUTS.PAYOUT_AMOUNT_TOO_LOW,
+      );
+    }
+
+    const normalizedKey = this.idempotencyService.normalizeKey(
+      idempotencyKey || undefined,
+    );
+    if (normalizedKey) {
+      const cached = await this.idempotencyService.get<{
+        message: string;
+        payoutId?: string;
+        amount?: number;
+      }>(`payouts:request:${driver.id}:${sanitizedAmount}`, driver.id, normalizedKey);
+      if (cached) {
+        return cached;
+      }
+    }
+
+    const payments = await this.paymentRepository
+      .createQueryBuilder('payment')
+      .leftJoinAndSelect('payment.booking', 'booking')
+      .leftJoinAndSelect('booking.route', 'route')
+      .where('route.driverId = :driverId', { driverId: driver.id })
+      .andWhere('payment.status = :status', { status: EstadoPagoEnum.PAID })
+      .andWhere('payment.payoutId IS NULL')
+      .orderBy('payment.paidAt', 'ASC')
+      .getMany();
+
+    const availableTotal = payments.reduce(
+      (sum, payment) => sum + Number(payment.amount),
+      0,
+    );
+
+    if (sanitizedAmount > availableTotal) {
+      throw new BadRequestException(
+        ErrorMessages.PAYOUTS.PAYOUT_AMOUNT_NOT_AVAILABLE,
+      );
+    }
+
+    const paymentIds: string[] = [];
+    let total = 0;
+
+    for (const payment of payments) {
+      const nextTotal = total + Number(payment.amount);
+      if (nextTotal > sanitizedAmount) {
+        continue;
+      }
+      paymentIds.push(payment.id);
+      total = nextTotal;
+      if (total === sanitizedAmount) {
+        break;
+      }
+    }
+
+    if (total < sanitizedAmount || paymentIds.length === 0) {
+      throw new BadRequestException(
+        ErrorMessages.PAYOUTS.PAYOUT_AMOUNT_NOT_AVAILABLE,
+      );
+    }
+
+    if (!driver.paypalEmail) {
+      throw new BadRequestException(ErrorMessages.DRIVER.INVALID_PAYPAL);
+    }
+
+    const now = new Date();
+    const period = `${now.getUTCFullYear()}-${String(
+      now.getUTCMonth() + 1,
+    ).padStart(2, '0')}`;
+
+    let payoutId: string | undefined;
+
+    await this.dataSource.transaction(async (manager) => {
+      const payoutRepo = manager.getRepository(Payout);
+      const payout = payoutRepo.create({
+        publicId: await generatePublicId(payoutRepo, 'PYO'),
+        driverId: driver.id,
+        period,
+        amount: Number(total.toFixed(2)),
+        status: EstadoPayoutEnum.PENDING,
+      });
+
+      const saved = await payoutRepo.save(payout);
+      payoutId = saved.publicId;
+
+      await manager.update(Payment, { id: In(paymentIds) }, { payoutId: saved.id });
+    });
+
+    await this.auditService.logEvent({
+      action: AuditAction.WITHDRAWAL_REQUESTED,
+      userId: businessUserId,
+      result: AuditResult.SUCCESS,
+      ipAddress: context?.ip,
+      userAgent: context?.userAgent,
+      metadata: { amount: total },
+    });
+
+    const response = {
+      message: ErrorMessages.PAYOUTS.PAYOUT_REQUESTED,
+      payoutId,
+      amount: Number(total.toFixed(2)),
+    };
+
+    if (normalizedKey) {
+      await this.idempotencyService.store(
+        `payouts:request:${driver.id}:${sanitizedAmount}`,
+        driver.id,
+        normalizedKey,
+        response,
+      );
+    }
+
+    return response;
+  }
 
   async getMyPayouts(
     businessUserId: string,

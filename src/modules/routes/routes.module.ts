@@ -15,6 +15,7 @@ import { Booking } from '../bookings/Models/booking.entity';
 import { Payment } from '../payments/Models/payment.entity';
 import { AuditModule } from '../audit/audit.module';
 import { PaymentsModule } from '../payments/payments.module';
+import { CommonModule } from '../common/common.module';
 
 @Module({
   imports: [
@@ -29,6 +30,7 @@ import { PaymentsModule } from '../payments/payments.module';
     ]),
     AuditModule,
     PaymentsModule,
+    CommonModule,
   ],
   controllers: [RoutesController],
   providers: [RoutesService],

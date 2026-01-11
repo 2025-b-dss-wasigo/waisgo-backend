@@ -20,9 +20,6 @@ describe('BusinessService', () => {
     save: jest.fn(),
     create: jest.fn(),
   };
-  const authUserRepo = {
-    update: jest.fn(),
-  };
   const storageService = {
     getSignedUrl: jest.fn(),
     upload: jest.fn(),
@@ -36,6 +33,13 @@ describe('BusinessService', () => {
   };
   const redisService = {
     revokeUserSessions: jest.fn(),
+  };
+  const identityResolver = {
+    resolveAuthUserId: jest.fn(),
+  };
+  const authUserRepo = {
+    update: jest.fn(),
+    findOne: jest.fn(),
   };
 
   const context: AuthContext = { ip: '127.0.0.1', userAgent: 'jest' };
@@ -51,6 +55,8 @@ describe('BusinessService', () => {
       configService as never,
       auditService as never,
       redisService as never,
+      identityResolver as never,
+      authUserRepo as never,
     );
   });
 
@@ -180,6 +186,7 @@ describe('BusinessService', () => {
     });
     configService.getOrThrow.mockReturnValue('bucket');
     storageService.getSignedUrl.mockResolvedValue('signed-url');
+    identityResolver.resolveAuthUserId.mockResolvedValue(undefined);
 
     const profile = await service.getMyProfile('user-id');
 
@@ -203,6 +210,7 @@ describe('BusinessService', () => {
     });
     configService.getOrThrow.mockReturnValue('bucket');
     storageService.getSignedUrl.mockResolvedValue('stored-url');
+    identityResolver.resolveAuthUserId.mockResolvedValue(undefined);
 
     const profile = await service.getMyProfile('user-id');
 

@@ -31,11 +31,13 @@ import { AuditAction, AuditResult } from '../audit/Enums';
 import { ErrorMessages } from '../common/constants/error-messages.constant';
 import type { AuthContext } from '../common/types';
 import { buildIdWhere, generatePublicId } from '../common/utils/public-id.util';
+import { distancePointToPolylineKm } from '../common/utils/polyline.util';
 import {
   haversineDistance,
   planStopInsertion,
 } from '../common/utils/route-stop.util';
 import { getDepartureDate } from '../common/utils/route-time.util';
+import { GoogleMapsService } from '../common/google-maps/google-maps.service';
 
 @Injectable()
 export class RoutesService {
@@ -59,6 +61,7 @@ export class RoutesService {
     private readonly paymentRepository: Repository<Payment>,
     private readonly paymentsService: PaymentsService,
     private readonly auditService: AuditService,
+    private readonly googleMapsService: GoogleMapsService,
   ) {}
 
   private async ensureRouteAccess(
@@ -166,6 +169,24 @@ export class RoutesService {
     dto: CreateRouteDto,
     context?: AuthContext,
   ): Promise<{ message: string; routeId?: string }> {
+    const departure = getDepartureDate(dto);
+    if (!departure) {
+      throw new BadRequestException(
+        ErrorMessages.ROUTES.ROUTE_INVALID_DEPARTURE,
+      );
+    }
+
+    if (!dto.stops || dto.stops.length < 2) {
+      throw new BadRequestException(ErrorMessages.ROUTES.ROUTE_STOPS_REQUIRED);
+    }
+
+    const minDeparture = Date.now() + 15 * 60 * 1000;
+    if (departure.getTime() < minDeparture) {
+      throw new BadRequestException(
+        ErrorMessages.ROUTES.ROUTE_DEPARTURE_TOO_SOON,
+      );
+    }
+
     const driver = await this.getApprovedDriver(businessUserId);
 
     const profile = await this.profileRepository.findOne({
@@ -211,6 +232,10 @@ export class RoutesService {
       ),
     );
 
+    const polyline = await this.googleMapsService.buildRoutePolyline(
+      dto.stops.map((stop) => ({ lat: stop.lat, lng: stop.lng })),
+    );
+
     const route = this.routeRepository.create({
       publicId: await generatePublicId(this.routeRepository, 'RTE'),
       driverId: driver.id,
@@ -223,6 +248,7 @@ export class RoutesService {
       precioPasajero: dto.precioPasajero,
       estado: EstadoRutaEnum.ACTIVA,
       mensaje: dto.mensaje?.trim() || null,
+      polyline,
       stops,
     });
 
@@ -304,16 +330,22 @@ export class RoutesService {
         const stops = route.stops || [];
         if (stops.length === 0) return null;
 
-        const minDistance = Math.min(
-          ...stops.map((stop) =>
-            haversineDistance(
-              dto.lat,
-              dto.lng,
-              Number(stop.lat),
-              Number(stop.lng),
+        let minDistance = route.polyline
+          ? distancePointToPolylineKm(dto.lat, dto.lng, route.polyline)
+          : Number.POSITIVE_INFINITY;
+
+        if (!Number.isFinite(minDistance)) {
+          minDistance = Math.min(
+            ...stops.map((stop) =>
+              haversineDistance(
+                dto.lat,
+                dto.lng,
+                Number(stop.lat),
+                Number(stop.lng),
+              ),
             ),
-          ),
-        );
+          );
+        }
 
         return minDistance <= radiusKm
           ? { route, distance: minDistance }
@@ -355,6 +387,7 @@ export class RoutesService {
       precioPasajero: Number(route.precioPasajero),
       mensaje: route.mensaje,
       distanceKm: Number(distance.toFixed(3)),
+      startedAt: route.startedAt ?? null,
       driver: {
         alias: driverAlias,
         rating,
@@ -391,7 +424,7 @@ export class RoutesService {
   async getRouteMap(
     businessUserId: string,
     routeId: string,
-  ): Promise<{ message: string; stops?: RouteStop[] }> {
+  ): Promise<{ message: string; stops?: RouteStop[]; polyline?: string | null }> {
     const route = await this.routeRepository.findOne({
       where: buildIdWhere<Route>(routeId),
       relations: ['driver'],
@@ -406,11 +439,12 @@ export class RoutesService {
       order: { orden: 'ASC' },
     });
 
-    return {
-      message: ErrorMessages.ROUTES.ROUTE_MAP,
-      stops,
-    };
-  }
+      return {
+        message: ErrorMessages.ROUTES.ROUTE_MAP,
+        stops,
+        polyline: route.polyline ?? null,
+      };
+    }
 
   async addRouteStop(
     businessUserId: string,
@@ -455,6 +489,7 @@ export class RoutesService {
     });
 
     await this.routeStopRepository.save(newStop);
+    await this.refreshRoutePolyline(route.id);
 
     await this.auditService.logEvent({
       action: AuditAction.ROUTE_UPDATED,
@@ -468,6 +503,129 @@ export class RoutesService {
     return {
       message: ErrorMessages.ROUTES.ROUTE_STOP_ADDED,
     };
+  }
+
+  async updateRouteSchedule(
+    businessUserId: string,
+    routeId: string,
+    dto: { fecha?: string; horaSalida?: string },
+  ): Promise<{ message: string }> {
+    if (!dto.fecha && !dto.horaSalida) {
+      throw new BadRequestException(ErrorMessages.ROUTES.ROUTE_SCHEDULE_REQUIRED);
+    }
+
+    const driver = await this.getApprovedDriver(businessUserId);
+    const route = await this.routeRepository.findOne({
+      where: buildIdWhere<Route>(routeId).map((where) => ({
+        ...where,
+        driverId: driver.id,
+      })),
+    });
+
+    if (!route) {
+      throw new NotFoundException(ErrorMessages.ROUTES.ROUTE_NOT_FOUND);
+    }
+
+    if (route.estado !== EstadoRutaEnum.ACTIVA) {
+      throw new BadRequestException(ErrorMessages.ROUTES.ROUTE_NOT_ACTIVE);
+    }
+
+    if (route.startedAt) {
+      throw new BadRequestException(ErrorMessages.ROUTES.ROUTE_ALREADY_STARTED);
+    }
+
+    const fecha = dto.fecha ?? route.fecha;
+    const horaSalida = dto.horaSalida ?? route.horaSalida;
+    const departure = getDepartureDate({ fecha, horaSalida });
+    if (!departure) {
+      throw new BadRequestException(
+        ErrorMessages.ROUTES.ROUTE_INVALID_DEPARTURE,
+      );
+    }
+
+    const minDeparture = Date.now() + 15 * 60 * 1000;
+    if (departure.getTime() < minDeparture) {
+      throw new BadRequestException(
+        ErrorMessages.ROUTES.ROUTE_DEPARTURE_TOO_SOON,
+      );
+    }
+
+    route.fecha = fecha;
+    route.horaSalida = horaSalida;
+    await this.routeRepository.save(route);
+
+    return { message: ErrorMessages.ROUTES.ROUTE_SCHEDULE_UPDATED };
+  }
+
+  async startRoute(
+    businessUserId: string,
+    routeId: string,
+    context?: AuthContext,
+  ): Promise<{ message: string }> {
+    const driver = await this.getApprovedDriver(businessUserId);
+    const route = await this.routeRepository.findOne({
+      where: buildIdWhere<Route>(routeId).map((where) => ({
+        ...where,
+        driverId: driver.id,
+      })),
+    });
+
+    if (!route) {
+      throw new NotFoundException(ErrorMessages.ROUTES.ROUTE_NOT_FOUND);
+    }
+
+    if (route.estado !== EstadoRutaEnum.ACTIVA) {
+      throw new BadRequestException(ErrorMessages.ROUTES.ROUTE_NOT_ACTIVE);
+    }
+
+    if (route.startedAt) {
+      throw new BadRequestException(ErrorMessages.ROUTES.ROUTE_ALREADY_STARTED);
+    }
+
+    const pendingCount = await this.bookingRepository.count({
+      where: {
+        routeId: route.id,
+        estado: EstadoReservaEnum.CONFIRMADA,
+        otpUsado: false,
+      },
+    });
+
+    if (pendingCount > 0) {
+      throw new BadRequestException(
+        ErrorMessages.ROUTES.ROUTE_START_PENDING_PASSENGERS,
+      );
+    }
+
+    route.startedAt = new Date();
+    await this.routeRepository.save(route);
+
+    await this.auditService.logEvent({
+      action: AuditAction.ROUTE_STARTED,
+      userId: businessUserId,
+      result: AuditResult.SUCCESS,
+      ipAddress: context?.ip,
+      userAgent: context?.userAgent,
+      metadata: { routeId: route.id },
+    });
+
+    return { message: ErrorMessages.ROUTES.ROUTE_STARTED };
+  }
+
+  private async refreshRoutePolyline(routeId: string): Promise<void> {
+    const stops = await this.routeStopRepository.find({
+      where: { routeId },
+      order: { orden: 'ASC' },
+    });
+
+    if (stops.length < 2) {
+      await this.routeRepository.update(routeId, { polyline: null });
+      return;
+    }
+
+    const polyline = await this.googleMapsService.buildRoutePolyline(
+      stops.map((stop) => ({ lat: Number(stop.lat), lng: Number(stop.lng) })),
+    );
+    await this.routeRepository.update(routeId, { polyline });
   }
 
   async cancelRoute(

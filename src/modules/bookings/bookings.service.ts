@@ -43,6 +43,7 @@ import {
   secureCompare,
 } from '../common/utils/otp-crypto.util';
 import { StructuredLogger, SecurityEventType } from '../common/logger';
+import { GoogleMapsService } from '../common/google-maps/google-maps.service';
 
 type PickupDetails = {
   hasPickup: boolean;
@@ -73,6 +74,7 @@ export class BookingsService {
     private readonly auditService: AuditService,
     private readonly configService: ConfigService,
     private readonly structuredLogger: StructuredLogger,
+    private readonly googleMapsService: GoogleMapsService,
   ) {}
 
   /**
@@ -209,14 +211,14 @@ export class BookingsService {
     stopRepo: Repository<RouteStop>,
     routeId: string,
     pickup: PickupDetails,
-  ): Promise<void> {
+  ): Promise<RouteStop | null> {
     if (
       !pickup.hasPickup ||
       pickup.pickupLat === undefined ||
       pickup.pickupLng === undefined ||
       !pickup.pickupDireccion
     ) {
-      return;
+      return null;
     }
 
     const stops = await stopRepo.find({
@@ -244,6 +246,8 @@ export class BookingsService {
     });
 
     await stopRepo.save(newStop);
+
+    return newStop;
   }
 
   private async createBookingTransaction(
@@ -256,6 +260,7 @@ export class BookingsService {
     bookingPublicId: string;
     otp: string;
     routeId: string;
+    pickupStopId?: string;
   }> {
     const routeRepo = manager.getRepository(Route);
     const bookingRepo = manager.getRepository(Booking);
@@ -297,15 +302,20 @@ export class BookingsService {
     route.asientosDisponibles = Math.max(route.asientosDisponibles - 1, 0);
     await routeRepo.save(route);
 
-    await this.insertPickupStop(stopRepo, route.id, pickup);
+      const pickupStop = await this.insertPickupStop(stopRepo, route.id, pickup);
+      if (pickupStop) {
+        savedBooking.pickupStopId = pickupStop.id;
+        await bookingRepo.save(savedBooking);
+      }
 
-    return {
-      bookingId: savedBooking.id,
-      bookingPublicId: savedBooking.publicId,
-      otp: generatedOtp,
-      routeId: route.id,
-    };
-  }
+      return {
+        bookingId: savedBooking.id,
+        bookingPublicId: savedBooking.publicId,
+        otp: generatedOtp,
+        routeId: route.id,
+        pickupStopId: pickupStop?.id,
+      };
+    }
 
   private async finalizeRouteIfReady(
     routeId: string,
@@ -397,16 +407,29 @@ export class BookingsService {
       this.createBookingTransaction(manager, passengerId, dto, pickup),
     );
 
-    const {
-      bookingId,
-      bookingPublicId,
-      otp,
-      routeId: routeInternalId,
-    } = result;
+      const {
+        bookingId,
+        bookingPublicId,
+        otp,
+        routeId: routeInternalId,
+        pickupStopId,
+      } = result;
 
-    await this.auditService.logEvent({
-      action: AuditAction.BOOKING_CREATED,
-      userId: passengerId,
+      if (pickupStopId) {
+        try {
+          await this.refreshRoutePolyline(routeInternalId ?? dto.routeId);
+        } catch (error) {
+          this.logger.error(
+            `Failed to refresh route polyline after booking: ${
+              error instanceof Error ? error.message : 'Unknown error'
+            }`,
+          );
+        }
+      }
+
+      await this.auditService.logEvent({
+        action: AuditAction.BOOKING_CREATED,
+        userId: passengerId,
       result: AuditResult.SUCCESS,
       ipAddress: context?.ip,
       userAgent: context?.userAgent,
@@ -664,7 +687,7 @@ export class BookingsService {
   async getBookingMap(
     passengerId: string,
     bookingId: string,
-  ): Promise<{ message: string; stops?: RouteStop[] }> {
+  ): Promise<{ message: string; stops?: RouteStop[]; polyline?: string | null }> {
     const booking = await this.bookingRepository.findOne({
       where: buildIdWhere<Booking>(bookingId),
     });
@@ -682,9 +705,14 @@ export class BookingsService {
       order: { orden: 'ASC' },
     });
 
+    const route = await this.routeRepository.findOne({
+      where: { id: booking.routeId },
+    });
+
     return {
       message: ErrorMessages.BOOKINGS.BOOKING_MAP,
       stops,
+      polyline: route?.polyline ?? null,
     };
   }
 
@@ -801,6 +829,10 @@ export class BookingsService {
     booking.estado = EstadoReservaEnum.NO_SHOW;
     await this.bookingRepository.save(booking);
 
+    if (booking.pickupStopId) {
+      await this.removePickupStop(booking.routeId, booking.pickupStopId);
+    }
+
     await this.finalizeRouteIfReady(booking.routeId, driverUserId, context);
 
     const payment = await this.paymentRepository.findOne({
@@ -827,6 +859,61 @@ export class BookingsService {
     return {
       message: ErrorMessages.BOOKINGS.BOOKING_NO_SHOW,
     };
+  }
+
+  private async refreshRoutePolyline(routeId: string): Promise<void> {
+    const stops = await this.routeStopRepository.find({
+      where: { routeId },
+      order: { orden: 'ASC' },
+    });
+
+    if (stops.length < 2) {
+      await this.routeRepository.update(routeId, { polyline: null });
+      return;
+    }
+
+    const polyline = await this.googleMapsService.buildRoutePolyline(
+      stops.map((stop) => ({ lat: Number(stop.lat), lng: Number(stop.lng) })),
+    );
+    await this.routeRepository.update(routeId, { polyline });
+  }
+
+  private async removePickupStop(
+    routeId: string,
+    pickupStopId: string,
+  ): Promise<void> {
+    const stop = await this.routeStopRepository.findOne({
+      where: { id: pickupStopId, routeId },
+    });
+
+    if (!stop) {
+      return;
+    }
+
+    await this.routeStopRepository.delete({ id: pickupStopId });
+
+    const remaining = await this.routeStopRepository.find({
+      where: { routeId },
+      order: { orden: 'ASC' },
+    });
+
+    const updates = remaining
+      .filter((item) => item.orden > stop.orden)
+      .map((item) => ({ ...item, orden: item.orden - 1 }));
+
+    if (updates.length > 0) {
+      await this.routeStopRepository.save(updates);
+    }
+
+    try {
+      await this.refreshRoutePolyline(routeId);
+    } catch (error) {
+      this.logger.error(
+        `Failed to refresh route polyline after stop removal: ${
+          error instanceof Error ? error.message : 'Unknown error'
+        }`,
+      );
+    }
   }
 
   /**

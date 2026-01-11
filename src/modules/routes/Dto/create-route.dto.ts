@@ -114,7 +114,7 @@ export class CreateRouteDto {
     type: [RouteStopDto],
   })
   @IsArray()
-  @ArrayMinSize(1)
+  @ArrayMinSize(2)
   @ValidateNested({ each: true })
   @Type(() => RouteStopDto)
   stops: RouteStopDto[];
