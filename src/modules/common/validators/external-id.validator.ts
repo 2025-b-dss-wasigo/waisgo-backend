@@ -16,7 +16,11 @@ export function IsExternalIdentifier(
       options: validationOptions,
       validator: {
         validate(value: unknown) {
-          return typeof value === 'string' && isValidIdentifier(value);
+          if (typeof value !== 'string') {
+            return false;
+          }
+          const trimmed = value.trim();
+          return trimmed.length > 0 && isValidIdentifier(trimmed);
         },
       },
     });
