@@ -21,8 +21,10 @@ async function bootstrap() {
   const structuredLogger = app.get(StructuredLogger);
   const isProd = configService.get<string>('NODE_ENV') === 'production';
   const useJsonLogger = configService.get<boolean>('LOG_JSON', false);
-  const swaggerEnabled =
-    configService.get<boolean>('SWAGGER_ENABLED', !isProd) && !useJsonLogger;
+  const swaggerEnabled = configService.get<boolean>(
+    'SWAGGER_ENABLED',
+    !isProd,
+  );
   const trustProxy = configService.get<boolean>('TRUST_PROXY', false);
   const frontendUrl =
     configService.get<string>('FRONTEND_URL') || 'http://localhost:4200';
