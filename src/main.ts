@@ -12,6 +12,7 @@ import { SwaggerModule, DocumentBuilder } from '@nestjs/swagger';
 import helmet from 'helmet';
 import { ConfigService } from '@nestjs/config';
 import { StructuredLogger } from './modules/common/logger';
+import { json, urlencoded } from 'express';
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
@@ -25,6 +26,8 @@ async function bootstrap() {
   const trustProxy = configService.get<boolean>('TRUST_PROXY', false);
   const frontendUrl =
     configService.get<string>('FRONTEND_URL') || 'http://localhost:4200';
+  const bodyLimit = '5mb';
+  const server = app.getHttpAdapter().getInstance();
 
   app.setGlobalPrefix('api');
   if (useJsonLogger) {
@@ -32,11 +35,35 @@ async function bootstrap() {
   }
 
   if (trustProxy) {
-    const server = app.getHttpAdapter().getInstance();
     server.set('trust proxy', 2);
   }
+  server.get('/robots.txt', (_req, res) => {
+    res.type('text/plain').send('User-agent: *\nDisallow: /\n');
+  });
+  server.get('/', (_req, res) => {
+    res.status(404).type('text/plain').send('Not Found');
+  });
 
-  app.use(helmet());
+  server.disable('x-powered-by');
+  app.use(json({ limit: bodyLimit }));
+  app.use(urlencoded({ extended: true, limit: bodyLimit }));
+  app.use(
+    helmet({
+      contentSecurityPolicy: swaggerEnabled
+        ? false
+        : {
+            directives: {
+              defaultSrc: ["'none'"],
+              frameAncestors: ["'none'"],
+            },
+          },
+      hsts: {
+        maxAge: 15552000,
+        includeSubDomains: true,
+        preload: true,
+      },
+    }),
+  );
 
   app.enableCors({
     origin: frontendUrl,
