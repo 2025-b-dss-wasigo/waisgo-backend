@@ -230,6 +230,7 @@ export const ErrorMessages = {
     PAYOUT_DETAIL: 'Detalle del payout',
     PAYOUTS_GENERATED: 'Payouts generados para el periodo',
     PAYOUT_SENT: 'Payout enviado por PayPal correctamente',
+    PAYOUT_PROCESSING: 'Payout enviado y en proceso',
     PAYOUT_FAILED: 'Payout marcado como fallido',
     PAYOUTS_LIST_ADMIN: 'Listado global de payouts',
     PAYOUT_NOT_FOUND: 'Payout no encontrado',

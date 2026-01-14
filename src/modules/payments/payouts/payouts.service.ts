@@ -8,6 +8,7 @@ import {
   BadRequestException,
   Optional,
 } from '@nestjs/common';
+import { Cron } from '@nestjs/schedule';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, DataSource, In } from 'typeorm';
 
@@ -31,6 +32,13 @@ import { IdempotencyService } from '../../common/idempotency/idempotency.service
 import { MetricsService } from '../../common/metrics/metrics.service';
 
 type PaypalPayoutResponse = {
+  batch_header?: {
+    payout_batch_id?: string;
+    batch_status?: string;
+  };
+};
+
+type PaypalPayoutStatusResponse = {
   batch_header?: {
     payout_batch_id?: string;
     batch_status?: string;
@@ -516,25 +524,40 @@ export class PayoutsService {
           },
         });
 
+      const batchStatus = paypalResponse.batch_header?.batch_status ?? null;
       payout.paypalBatchId =
         paypalResponse.batch_header?.payout_batch_id ?? null;
       payout.attempts += 1;
 
-      if (paypalResponse.batch_header?.batch_status === 'SUCCESS') {
+      if (batchStatus === 'SUCCESS') {
         payout.status = EstadoPayoutEnum.PAID;
         payout.paidAt = new Date();
+      } else if (batchStatus === 'FAILED') {
+        payout.status = EstadoPayoutEnum.FAILED;
+        payout.lastError = 'PayPal batch failed';
       }
 
       await this.payoutRepository.save(payout);
       if (payout.status === EstadoPayoutEnum.PAID) {
         this.metricsService?.payoutsEventsTotal.labels('paid').inc();
       }
+      if (payout.status === EstadoPayoutEnum.FAILED) {
+        this.metricsService?.payoutsEventsTotal.labels('failed').inc();
+      }
 
-      if (adminUserId) {
+      if (adminUserId && payout.status !== EstadoPayoutEnum.PENDING) {
+        const action =
+          payout.status === EstadoPayoutEnum.PAID
+            ? AuditAction.WITHDRAWAL_COMPLETED
+            : AuditAction.WITHDRAWAL_FAILED;
+        const result =
+          payout.status === EstadoPayoutEnum.PAID
+            ? AuditResult.SUCCESS
+            : AuditResult.FAILED;
         await this.auditService.logEvent({
-          action: AuditAction.WITHDRAWAL_COMPLETED,
+          action,
           userId: adminUserId,
-          result: AuditResult.SUCCESS,
+          result,
           ipAddress: context?.ip,
           userAgent: context?.userAgent,
           metadata: {
@@ -544,8 +567,14 @@ export class PayoutsService {
         });
       }
 
+      let message: string = ErrorMessages.PAYOUTS.PAYOUT_PROCESSING;
+      if (batchStatus === 'SUCCESS') {
+        message = ErrorMessages.PAYOUTS.PAYOUT_SENT;
+      } else if (batchStatus === 'FAILED') {
+        message = ErrorMessages.PAYOUTS.PAYOUT_FAILED;
+      }
       const result = {
-        message: ErrorMessages.PAYOUTS.PAYOUT_SENT,
+        message,
         paypalBatchId: payout.paypalBatchId ?? undefined,
       };
 
@@ -579,6 +608,47 @@ export class PayoutsService {
       }
 
       throw new BadRequestException(ErrorMessages.PAYMENTS.PAYMENT_FAILED);
+    }
+  }
+
+  @Cron('*/5 * * * *')
+  async syncPaypalPayouts(): Promise<void> {
+    const pendingPayouts = await this.payoutRepository
+      .createQueryBuilder('payout')
+      .where('payout.status = :status', { status: EstadoPayoutEnum.PENDING })
+      .andWhere('payout.paypalBatchId IS NOT NULL')
+      .getMany();
+
+    for (const payout of pendingPayouts) {
+      if (!payout.paypalBatchId) {
+        continue;
+      }
+
+      try {
+        const response =
+          await this.paypalClient.request<PaypalPayoutStatusResponse>({
+            method: 'GET',
+            path: `/v1/payments/payouts/${payout.paypalBatchId}`,
+          });
+
+        const batchStatus = response.batch_header?.batch_status ?? null;
+        if (batchStatus === 'SUCCESS') {
+          payout.status = EstadoPayoutEnum.PAID;
+          payout.paidAt = new Date();
+          payout.lastError = null;
+          await this.payoutRepository.save(payout);
+          this.metricsService?.payoutsEventsTotal.labels('paid').inc();
+        } else if (batchStatus === 'FAILED') {
+          payout.status = EstadoPayoutEnum.FAILED;
+          payout.lastError = 'PayPal batch failed';
+          await this.payoutRepository.save(payout);
+          this.metricsService?.payoutsEventsTotal.labels('failed').inc();
+        }
+      } catch (error) {
+        payout.lastError =
+          error instanceof Error ? error.message : 'PayPal payout sync failed';
+        await this.payoutRepository.save(payout);
+      }
     }
   }
 
