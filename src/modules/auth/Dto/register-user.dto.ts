@@ -86,9 +86,12 @@ export class RegisterUserDto {
   @Transform(({ value }: { value: unknown }) =>
     typeof value === 'string' ? value.trim() : value,
   )
-  @Matches(/^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[^A-Za-z\d]).+$/, {
-    message: ErrorMessages.AUTH.PASSWORD_REQUIREMENTS,
-  })
+  @Matches(
+    /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[/*.@_#-])[A-Za-z\d/*.@_#-]+$/,
+    {
+      message: ErrorMessages.AUTH.PASSWORD_REQUIREMENTS,
+    },
+  )
   password: string;
 
   @ApiProperty({
@@ -105,8 +108,11 @@ export class RegisterUserDto {
   @Transform(({ value }: { value: unknown }) =>
     typeof value === 'string' ? value.trim() : value,
   )
-  @Matches(/^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[/*.@_#-])[A-Za-z\d/*.@_#-]+$/, {
-    message: ErrorMessages.AUTH.PASSWORD_REQUIREMENTS,
-  })
+  @Matches(
+    /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[/*.@_#-])[A-Za-z\d/*.@_#-]+$/,
+    {
+      message: ErrorMessages.AUTH.PASSWORD_REQUIREMENTS,
+    },
+  )
   confirmPassword: string;
 }
