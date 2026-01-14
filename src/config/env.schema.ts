@@ -31,7 +31,6 @@ export const envSchema = Joi.object({
   SEED_ENABLED: Joi.boolean().optional(),
   LOG_JSON: Joi.boolean().optional(),
 
-  TRUST_PROXY: Joi.boolean().default(false),
 
   PAYPAL_CLIENT_ID: Joi.string().required(),
   PAYPAL_SECRET: Joi.string().required(),

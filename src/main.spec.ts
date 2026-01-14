@@ -43,43 +43,64 @@ jest.mock('@nestjs/swagger', () => ({
 
 describe('bootstrap', () => {
   it('configures and starts the app', async () => {
-    const configService = {
-      get: jest.fn((key: string, fallback?: unknown) =>
-        key === 'PORT' ? 3000 : fallback,
-      ),
-    };
-    const appMock = {
-      setGlobalPrefix: jest.fn(),
-      use: jest.fn(),
-      enableCors: jest.fn(),
+    const previousEnv = process.env.NODE_ENV;
+    const previousWorker = process.env.JEST_WORKER_ID;
+    process.env.NODE_ENV = 'development';
+    delete process.env.JEST_WORKER_ID;
+
+    try {
+      const configService = {
+        get: jest.fn((key: string, fallback?: unknown) =>
+          key === 'PORT' ? 3000 : fallback,
+        ),
+      };
+      const appMock = {
+        setGlobalPrefix: jest.fn(),
+        use: jest.fn(),
+        enableCors: jest.fn(),
       useGlobalInterceptors: jest.fn(),
       useGlobalFilters: jest.fn(),
       useGlobalPipes: jest.fn(),
       listen: jest.fn().mockResolvedValue(undefined),
+      getHttpAdapter: jest.fn(() => ({
+        getInstance: jest.fn(() => ({
+          set: jest.fn(),
+          get: jest.fn(),
+          disable: jest.fn(),
+        })),
+      })),
       get: jest.fn((token: unknown) => {
         const tokenName =
-          typeof token === 'function' ? token.name : String(token);
-        if (token === AuditService || tokenName === 'AuditService') return {};
-        if (token === ConfigService || tokenName === 'ConfigService') {
-          return configService;
-        }
-        return null;
-      }),
-    };
+            typeof token === 'function' ? token.name : String(token);
+          if (token === AuditService || tokenName === 'AuditService') return {};
+          if (token === ConfigService || tokenName === 'ConfigService') {
+            return configService;
+          }
+          return null;
+        }),
+      };
 
-    (NestFactory.create as jest.Mock).mockResolvedValue(appMock);
-    (SwaggerModule.createDocument as jest.Mock).mockReturnValue({});
+      (NestFactory.create as jest.Mock).mockResolvedValue(appMock);
+      (SwaggerModule.createDocument as jest.Mock).mockReturnValue({});
 
-    require('./main');
+      require('./main');
 
-    await new Promise(process.nextTick);
+      await new Promise(process.nextTick);
 
-    const createArg = (NestFactory.create as jest.Mock).mock.calls[0]?.[0];
-    expect(typeof createArg).toBe('function');
-    expect(createArg?.name).toBe(AppModule.name);
-    expect(appMock.setGlobalPrefix).toHaveBeenCalledWith('api');
-    expect(appMock.enableCors).toHaveBeenCalled();
-    expect(appMock.listen).toHaveBeenCalledWith(3000);
-    expect(SwaggerModule.setup).toHaveBeenCalled();
+      const createArg = (NestFactory.create as jest.Mock).mock.calls[0]?.[0];
+      expect(typeof createArg).toBe('function');
+      expect(createArg?.name).toBe(AppModule.name);
+      expect(appMock.setGlobalPrefix).toHaveBeenCalledWith('api');
+      expect(appMock.enableCors).toHaveBeenCalled();
+      expect(appMock.listen).toHaveBeenCalledWith(3000);
+      expect(SwaggerModule.setup).toHaveBeenCalled();
+    } finally {
+      process.env.NODE_ENV = previousEnv;
+      if (previousWorker === undefined) {
+        delete process.env.JEST_WORKER_ID;
+      } else {
+        process.env.JEST_WORKER_ID = previousWorker;
+      }
+    }
   });
 });

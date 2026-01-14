@@ -23,7 +23,6 @@ async function bootstrap() {
   const isProd = configService.get<string>('NODE_ENV') === 'production';
   const useJsonLogger = configService.get<boolean>('LOG_JSON', false);
   const swaggerEnabled = configService.get<boolean>('SWAGGER_ENABLED', !isProd);
-  const trustProxy = configService.get<boolean>('TRUST_PROXY', false);
   const frontendUrl =
     configService.get<string>('FRONTEND_URL') || 'http://localhost:4200';
   const bodyLimit = '5mb';
@@ -34,9 +33,8 @@ async function bootstrap() {
     app.useLogger(structuredLogger);
   }
 
-  if (trustProxy) {
-    server.set('trust proxy', 2);
-  }
+  // OCI LB (1) + Traefik (1)
+  server.set('trust proxy', 2);
   server.get('/robots.txt', (_req, res) => {
     res.type('text/plain').send('User-agent: *\nDisallow: /\n');
   });
@@ -120,4 +118,6 @@ async function bootstrap() {
     );
   }
 }
-void bootstrap(); // NOSONAR
+if (process.env.NODE_ENV !== 'test' && !process.env.JEST_WORKER_ID) {
+  void bootstrap(); // NOSONAR
+}

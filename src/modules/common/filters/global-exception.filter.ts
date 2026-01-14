@@ -16,6 +16,7 @@ import type { Request, Response } from 'express';
 import { AuditService } from 'src/modules/audit/audit.service';
 import { AuditAction } from 'src/modules/audit/Enums/audit-actions.enum';
 import { AuditResult } from 'src/modules/audit/Enums/audit-result.enum';
+import { getClientIp } from '../utils/request-ip.util';
 import {
   ErrorCodes,
   ErrorMessages,
@@ -138,7 +139,7 @@ export class GlobalExceptionFilter implements ExceptionFilter {
       path: request.path,
       method: request.method,
       statusCode: status,
-      ip: this.getClientIp(request),
+      ip: getClientIp(request),
       userAgent: request.headers['user-agent'],
       userId: (request as Request & { user?: { id?: string } }).user?.id,
     };
@@ -191,7 +192,7 @@ export class GlobalExceptionFilter implements ExceptionFilter {
             ? AuditAction.UNAUTHORIZED_ACCESS
             : AuditAction.ACCESS_DENIED_ROLE,
         userId: user?.id,
-        ipAddress: this.getClientIp(request),
+        ipAddress: getClientIp(request),
         userAgent: request.headers['user-agent'],
         result: AuditResult.FAILED,
         metadata: {
@@ -286,15 +287,4 @@ export class GlobalExceptionFilter implements ExceptionFilter {
     }
   }
 
-  private getClientIp(request: Request): string {
-    const forwardedFor = request.headers['x-forwarded-for'];
-    const forwardedIp =
-      typeof forwardedFor === 'string' ? forwardedFor.split(',')[0].trim() : '';
-    return (
-      forwardedIp ||
-      request.ip ||
-      request.socket?.remoteAddress ||
-      'unknown'
-    );
-  }
 }

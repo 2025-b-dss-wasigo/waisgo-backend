@@ -7,7 +7,11 @@ import { ExecutionContext } from '@nestjs/common';
 import { ResponseInterceptor } from './response.interceptor';
 
 describe('ResponseInterceptor', () => {
-  const ctx = {} as ExecutionContext;
+  const ctx = {
+    switchToHttp: () => ({
+      getRequest: () => ({}),
+    }),
+  } as ExecutionContext;
 
   it('wraps undefined responses as success without data', async () => {
     const interceptor = new ResponseInterceptor();

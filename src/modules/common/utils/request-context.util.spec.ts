@@ -31,7 +31,7 @@ describe('request-context utils', () => {
     expect(context).toEqual({ ip: '127.0.0.1', userAgent: 'unknown' });
   });
 
-  it('falls back to socket address when request ip is missing', () => {
+  it('falls back to unknown when request ip is missing', () => {
     const req = {
       headers: { 'user-agent': 'jest' },
       ip: undefined,
@@ -39,7 +39,7 @@ describe('request-context utils', () => {
     } as never;
 
     const context = buildAuthContext(req);
-    expect(context).toEqual({ ip: '10.0.0.9', userAgent: 'jest' });
+    expect(context).toEqual({ ip: 'unknown', userAgent: 'jest' });
   });
 
   it('throws when identifier is invalid', () => {

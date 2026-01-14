@@ -7,13 +7,10 @@ import type { Request } from 'express';
 import type { AuthContext } from '../types';
 import { ErrorMessages } from '../constants/error-messages.constant';
 import { isValidIdentifier } from './public-id.util';
+import { getClientIp } from './request-ip.util';
 
 export const buildAuthContext = (req: Request): AuthContext => {
-  const forwardedFor = req.headers['x-forwarded-for'];
-  const forwardedIp =
-    typeof forwardedFor === 'string' ? forwardedFor.split(',')[0].trim() : '';
-  const ip =
-    forwardedIp || req.ip || req.socket?.remoteAddress || 'unknown';
+  const ip = getClientIp(req);
 
   return {
     ip,
